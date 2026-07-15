@@ -1,0 +1,221 @@
+/* 结果页样式 — 简约风格 */
+
+.page {
+  min-height: 100vh;
+  background: #f5f5f7;
+  padding-bottom: 80rpx;
+}
+
+/* ---- 加载状态 ---- */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.loading-state__text {
+  font-size: 28rpx;
+  color: #86868b;
+  margin-top: 20rpx;
+}
+
+/* ---- 顶部粘贴栏 ---- */
+.paste-bar {
+  padding: 20rpx 30rpx 10rpx;
+}
+
+.paste-bar__input-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 2rpx solid #d2d2d7;
+  border-radius: 50rpx;
+  padding: 16rpx 28rpx;
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.04);
+}
+
+.paste-bar__icon {
+  font-size: 26rpx;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+}
+
+.paste-bar__input {
+  flex: 1;
+  font-size: 26rpx;
+  color: #1d1d1f;
+  background: transparent;
+  border: none;
+  outline: none;
+  height: 44rpx;
+  line-height: 44rpx;
+  min-width: 0;
+}
+
+.paste-bar__placeholder {
+  color: #86868b;
+  font-size: 26rpx;
+}
+
+.paste-bar__actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.paste-bar__btn {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0;
+  font-size: 26rpx;
+  border-radius: 50rpx;
+  text-align: center;
+  border: none;
+}
+
+.paste-bar__btn--paste {
+  background: #1d1d1f;
+  color: #ffffff;
+}
+
+.paste-bar__btn--paste:active {
+  opacity: 0.85;
+}
+
+.paste-bar__btn--clear {
+  background: #ffffff;
+  color: #86868b;
+  border: 2rpx solid #d2d2d7;
+}
+
+.paste-bar__btn--clear:active {
+  background: #f5f5f7;
+}
+
+/* ---- 简约平台行 ---- */
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 30rpx 4rpx;
+}
+
+.meta-row__icon {
+  font-size: 28rpx;
+}
+
+.meta-row__name {
+  font-size: 24rpx;
+  color: #86868b;
+}
+
+/* ---- 媒体预览卡片 ---- */
+.media-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  margin: 12rpx 30rpx;
+  overflow: hidden;
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+}
+
+.media-card--image {
+  padding-bottom: 10rpx;
+}
+
+.media-card__video {
+  width: 100%;
+  height: 480rpx;
+}
+
+.media-card__swiper {
+  width: 100%;
+  height: 600rpx;
+}
+
+.media-card__image {
+  width: 100%;
+  height: 600rpx;
+}
+
+.media-card__status {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: #86868b;
+  padding: 10rpx 0;
+}
+
+.media-card__count {
+  display: block;
+  text-align: center;
+  padding: 12rpx;
+  color: #86868b;
+  font-size: 24rpx;
+}
+
+/* ---- 胶囊按钮行 ---- */
+.capsule-bar {
+  display: flex;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 20rpx 30rpx 10rpx;
+  flex-wrap: wrap;
+}
+
+.capsule {
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 36rpx;
+  font-size: 26rpx;
+  border-radius: 100rpx;
+  text-align: center;
+  border: none;
+  white-space: nowrap;
+}
+
+.capsule--outline {
+  background: #ffffff;
+  color: #1d1d1f;
+  border: 2rpx solid #d2d2d7;
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.04);
+}
+
+.capsule--outline:active {
+  background: #f5f5f7;
+}
+
+.capsule--dark {
+  background: #1d1d1f;
+  color: #ffffff;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.12);
+}
+
+.capsule--dark:active {
+  opacity: 0.85;
+}
+
+.capsule--dark[disabled] {
+  opacity: 0.4;
+}
+
+/* ---- 继续解析 ---- */
+.back-bar {
+  padding: 30rpx 30rpx 0;
+  text-align: center;
+}
+
+.back-btn {
+  background: transparent;
+  color: #86868b;
+  font-size: 26rpx;
+  text-align: center;
+  border: none;
+  padding: 20rpx;
+}
+
+.back-btn:active {
+  color: #1d1d1f;
+}

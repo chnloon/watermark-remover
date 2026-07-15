@@ -1,0 +1,15 @@
+node_modules/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# media-parser 作为子模块管理
+/media-parser
+
+# 临时文件
+nul
+*.swp
+*.swo
+*.mp4
+parse_response.json

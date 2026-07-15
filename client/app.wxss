@@ -1,0 +1,126 @@
+/* 全局样式 — Apple 风格 */
+
+page {
+  background-color: #f5f5f7;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #1d1d1f;
+}
+
+/* 卡片容器 — 柔和圆角 */
+.card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin: 20rpx;
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 主要按钮 — Apple 蓝 */
+.btn-primary {
+  background: #0071e3;
+  color: #fff;
+  border-radius: 50rpx;
+  padding: 26rpx 0;
+  font-size: 30rpx;
+  text-align: center;
+  border: none;
+  transition: opacity 0.2s;
+}
+
+.btn-primary:active {
+  opacity: 0.85;
+}
+
+.btn-primary--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 次要按钮 — 白色边框 */
+.btn-secondary {
+  background: #ffffff;
+  color: #0071e3;
+  border: 2rpx solid #d2d2d7;
+  border-radius: 50rpx;
+  padding: 24rpx 0;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.btn-secondary:active {
+  background: #f5f5f7;
+}
+
+/* 输入框样式 */
+.input-box {
+  background: #ffffff;
+  border: 2rpx solid #d2d2d7;
+  border-radius: 14rpx;
+  padding: 24rpx 28rpx;
+  font-size: 28rpx;
+  color: #1d1d1f;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-box:focus {
+  border-color: #0071e3;
+}
+
+.input-box::placeholder {
+  color: #86868b;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 6rpx 18rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  margin: 4rpx;
+}
+
+.tag--success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.tag--info {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+/* 加载动画 — Apple 灰 */
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx;
+}
+
+.loading-spinner__dot {
+  width: 14rpx;
+  height: 14rpx;
+  margin: 0 8rpx;
+  background: #86868b;
+  border-radius: 50%;
+  animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.loading-spinner__dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-spinner__dot:nth-child(2) { animation-delay: -0.16s; }
+.loading-spinner__dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+/* 视频状态文字 */
+.video-status {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: #86868b;
+  padding: 10rpx 0;
+}

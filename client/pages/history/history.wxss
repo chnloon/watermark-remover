@@ -1,0 +1,145 @@
+/* 历史记录样式 */
+.container {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx 30rpx 10rpx;
+}
+
+.header__title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.header__clear {
+  font-size: 26rpx;
+  color: #999;
+  background: none;
+  border: none;
+  padding: 10rpx 20rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.empty-state__icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-state__text {
+  font-size: 32rpx;
+  color: #666;
+  font-weight: 600;
+}
+
+.empty-state__hint {
+  font-size: 26rpx;
+  color: #999;
+  margin-top: 12rpx;
+}
+
+.btn-go-parse {
+  margin-top: 40rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 50rpx;
+  padding: 20rpx 60rpx;
+  font-size: 30rpx;
+  border: none;
+}
+
+/* 历史列表 */
+.history-list {
+  padding: 20rpx;
+}
+
+.history-item {
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.history-item:active {
+  background: #f8f9fc;
+}
+
+.history-item__cover {
+  width: 160rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  background: #f0f0f0;
+  flex-shrink: 0;
+}
+
+.history-item__info {
+  flex: 1;
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.history-item__title {
+  font-size: 28rpx;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.history-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.platform-tag {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+}
+
+.platform-tag--douyin {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.platform-tag--kuaishou {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.platform-tag--xiaohongshu {
+  background: #fce4ec;
+  color: #ad1457;
+}
+
+.history-item__type {
+  font-size: 22rpx;
+  color: #666;
+}
+
+.history-item__time {
+  font-size: 20rpx;
+  color: #999;
+}

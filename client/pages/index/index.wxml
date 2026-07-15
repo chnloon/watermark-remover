@@ -1,0 +1,27 @@
+<view class="page">
+  <!-- 主区域 — 垂直居中 -->
+  <view class="main-area">
+    <view class="search-section">
+      <!-- 搜索栏 -->
+      <view class="search-bar {{inputUrl ? 'search-bar--focused' : ''}}">
+        <text class="search-bar__icon">🔗</text>
+        <input
+          class="search-bar__input"
+          placeholder="粘贴抖音 / 快手 / 小红书分享链接"
+          placeholder-class="search-bar__placeholder"
+          value="{{inputUrl}}"
+          bindinput="onInputChange"
+          maxlength="-1"
+          confirm-type="search"
+          bindconfirm="onParseFromButton"
+        />
+        <button class="search-bar__btn" bindtap="onSearchBarBtnTap">
+          {{buttonText}}
+        </button>
+      </view>
+    </view>
+
+    <!-- 底部 -->
+    <text class="footer__title">一键为您去除水印</text>
+  </view>
+</view>

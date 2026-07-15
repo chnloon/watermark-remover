@@ -1,0 +1,94 @@
+/* 首页样式 — Google × Apple */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f5f5f7;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+/* ---- 搜索栏 ---- */
+.search-section {
+  width: 100%;
+  max-width: 620rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.search-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 2rpx solid #d2d2d7;
+  border-radius: 50rpx;
+  padding: 6rpx 6rpx 6rpx 32rpx;
+  box-sizing: border-box;
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-bar--focused {
+  border-color: #0071e3;
+  box-shadow: 0 1rpx 8rpx rgba(0, 113, 227, 0.10);
+}
+
+.search-bar__icon {
+  font-size: 28rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.search-bar__input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #1d1d1f;
+  background: transparent;
+  border: none;
+  outline: none;
+  height: 52rpx;
+  line-height: 52rpx;
+  min-width: 0;
+}
+
+.search-bar__placeholder {
+  color: #86868b;
+  font-size: 28rpx;
+}
+
+/* 搜索栏内嵌按钮 — 黑底白字，切换「粘贴」/「解析」 */
+.search-bar__btn {
+  flex-shrink: 0;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 32rpx;
+  font-size: 28rpx;
+  color: #ffffff;
+  background: #1d1d1f;
+  border-radius: 40rpx;
+  border: none;
+  margin-left: 12rpx;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.search-bar__btn:active {
+  opacity: 0.85;
+}
+
+/* ---- 底部 ---- */
+.footer__title {
+  position: fixed;
+  bottom: 48rpx;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 22rpx;
+  color: #c7c7cc;
+  letter-spacing: 2rpx;
+}

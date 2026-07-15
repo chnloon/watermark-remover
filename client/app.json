@@ -1,0 +1,42 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/result/result",
+    "pages/history/history"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "去水印助手",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f5f7"
+  },
+  "tabBar": {
+    "color": "#c7c7cc",
+    "selectedColor": "#1d1d1f",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "去水印",
+        "iconPath": "assets/icons/parse.png",
+        "selectedIconPath": "assets/icons/parse_active.png"
+      },
+      {
+        "pagePath": "pages/history/history",
+        "text": "历史",
+        "iconPath": "assets/icons/history.png",
+        "selectedIconPath": "assets/icons/history_active.png"
+      }
+    ]
+  },
+  "permission": {
+    "scope.writePhotosAlbum": {
+      "desc": "需要保存视频和图片到你的相册"
+    }
+  },
+  "useExtendedLib": {
+    "weui": true
+  },
+  "sitemapLocation": "sitemap.json"
+}

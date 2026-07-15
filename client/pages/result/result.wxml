@@ -1,0 +1,104 @@
+<view class="page">
+  <!-- 加载状态 -->
+  <view wx:if="{{!resultData}}" class="loading-state">
+    <view class="loading-spinner">
+      <view class="loading-spinner__dot"></view>
+      <view class="loading-spinner__dot"></view>
+      <view class="loading-spinner__dot"></view>
+    </view>
+    <text class="loading-state__text">加载中...</text>
+  </view>
+
+  <!-- 结果展示 -->
+  <view wx:else class="result-container">
+
+    <!-- 顶部粘贴栏 -->
+    <view class="paste-bar">
+      <view class="paste-bar__input-wrap">
+        <text class="paste-bar__icon">🔗</text>
+        <input
+          class="paste-bar__input"
+          placeholder="粘贴抖音 / 快手 / 小红书分享链接"
+          placeholder-class="paste-bar__placeholder"
+          value="{{currentUrl}}"
+          bindinput="onUrlInput"
+          maxlength="-1"
+        />
+      </view>
+      <view class="paste-bar__actions">
+        <button class="paste-bar__btn paste-bar__btn--paste" bindtap="onPasteUrl">📋 粘贴</button>
+        <button class="paste-bar__btn paste-bar__btn--clear" wx:if="{{currentUrl.length > 0}}" bindtap="onClearUrl">🗑 清空</button>
+      </view>
+    </view>
+
+    <!-- 平台标识简约行 -->
+    <view class="meta-row">
+      <text class="meta-row__icon">{{platformIcon}}</text>
+      <text class="meta-row__name">{{platformName}}</text>
+    </view>
+
+    <!-- 视频预览卡片 -->
+    <view wx:if="{{resultData.data.type === 'video'}}" class="media-card">
+      <video
+        class="media-card__video"
+        src="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl}}"
+        controls
+        autoplay="{{false}}"
+        object-fit="contain"
+        bindready="onVideoReady"
+        binderror="onVideoError"
+      />
+      <text class="media-card__status">{{videoStatus}}</text>
+    </view>
+
+    <!-- 图片预览 -->
+    <view wx:if="{{resultData.data.type === 'image'}}" class="media-card media-card--image">
+      <swiper
+        class="media-card__swiper"
+        indicator-dots="{{resultData.data.images.length > 1}}"
+        indicator-color="rgba(0,0,0,0.08)"
+        indicator-active-color="#0071e3"
+        circular="{{false}}"
+        autoplay="{{false}}"
+      >
+        <swiper-item wx:for="{{resultData.data.images}}" wx:key="*this">
+          <image class="media-card__image" src="{{item}}" mode="widthFix" />
+        </swiper-item>
+      </swiper>
+      <text wx:if="{{resultData.data.images.length > 1}}" class="media-card__count">
+        {{currentImageIndex + 1}} / {{resultData.data.images.length}}
+      </text>
+    </view>
+
+    <!-- 三个胶囊按钮 -->
+    <view class="capsule-bar">
+      <button class="capsule capsule--outline" bindtap="onCopyLink" data-link="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl || resultData.data.images[0]}}">
+        复制链接
+      </button>
+      <button class="capsule capsule--outline" wx:if="{{resultData.data.title}}" bindtap="onCopyDesc">
+        复制文案
+      </button>
+      <button
+        class="capsule capsule--dark"
+        wx:if="{{resultData.data.type === 'video'}}"
+        bindtap="onSaveVideo"
+        disabled="{{isSaving}}"
+      >
+        {{isSaving ? '保存中...' : '保存视频'}}
+      </button>
+      <button
+        class="capsule capsule--dark"
+        wx:if="{{resultData.data.type === 'image'}}"
+        bindtap="onSaveImages"
+        disabled="{{isSaving}}"
+      >
+        {{isSaving ? '保存中...' : '保存图片'}}
+      </button>
+    </view>
+
+    <!-- 继续解析 -->
+    <view class="back-bar">
+      <button class="back-btn" bindtap="onBack">继续解析</button>
+    </view>
+  </view>
+</view>
