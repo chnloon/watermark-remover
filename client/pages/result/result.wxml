@@ -60,28 +60,48 @@
       </view>
     </view>
 
-    <!-- ===== 图片预览 (轮播) ===== -->
+    <!-- ===== 图片预览 (网格 + 多选) ===== -->
     <view wx:if="{{resultData.data.type === 'image'}}" class="media-card media-card--image fade-in-up--d1">
-      <swiper
-        class="media-card__swiper"
-        indicator-dots="{{resultData.data.images.length > 1}}"
-        indicator-color="rgba(22,24,31,0.08)"
-        indicator-active-color="#2b6cff"
-        circular="{{false}}"
-        autoplay="{{false}}"
-        bindchange="onSwiperChange"
-      >
-        <swiper-item wx:for="{{resultData.data.images}}" wx:key="*this" data-index="{{index}}">
-          <image
-            class="media-card__image"
-            src="{{resultData.data.proxyImages ? resultData.data.proxyImages[index] : item}}"
-            mode="widthFix"
-          />
-        </swiper-item>
-      </swiper>
-      <text wx:if="{{resultData.data.images.length > 1}}" class="media-card__count">
-        {{currentImageIndex + 1}} / {{resultData.data.images.length}}
-      </text>
+      <!-- 顶部工具栏: 标题 + 全选/全不选 -->
+      <view class="image-toolbar">
+        <text class="image-toolbar__title">共 {{resultData.data.images.length}} 张图片</text>
+        <view class="image-toolbar__btns">
+          <text class="image-toolbar__btn" bindtap="onSelectAll">全选</text>
+          <text class="image-toolbar__btn image-toolbar__btn--none" bindtap="onSelectNone">全不选</text>
+        </view>
+      </view>
+
+      <!-- 图片横向滑动列表: 每张图可点选 -->
+      <scroll-view class="image-hscroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="image-hscroll__inner">
+          <view
+            class="image-card {{selectedImages[index] ? 'image-card--selected' : ''}}"
+            wx:for="{{resultData.data.images}}"
+            wx:key="*this"
+            data-index="{{index}}"
+            bindtap="onToggleImage"
+          >
+            <image
+              class="image-card__img"
+              src="{{item}}"
+              mode="aspectFill"
+              lazy-load
+            />
+            <!-- 勾选标记（右上角圆形） -->
+            <view class="image-card__check {{selectedImages[index] ? 'image-card__check--on' : ''}}">
+              <text wx:if="{{selectedImages[index]}}" class="image-card__check-icon">✓</text>
+            </view>
+            <!-- 序号 -->
+            <text class="image-card__index">{{index + 1}}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 选中状态提示 -->
+      <view class="image-select-hint">
+        <text wx:if="{{selectedCount > 0}}" class="image-select-hint__text">已选 {{selectedCount}} 张</text>
+        <text wx:else class="image-select-hint__text">左右滑动选择要保存的图片</text>
+      </view>
     </view>
 
     <!-- ===== 列表展示 (网页视频提取) ===== -->
@@ -147,7 +167,7 @@
           bindtap="onSaveImages"
           disabled="{{isSaving}}"
         >
-          <text class="action-btn__label">{{isSaving ? '保存中...' : '保存全部图片'}}</text>
+          <text class="action-btn__label">{{isSaving ? '保存中...' : '保存图片'}}</text>
         </button>
       </view>
 

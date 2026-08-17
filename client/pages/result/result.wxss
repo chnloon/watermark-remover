@@ -202,6 +202,127 @@
   font-size: 24rpx;
 }
 
+/* ---- 图片横向滑动 + 多选 ---- */
+.image-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx 12rpx;
+}
+
+.image-toolbar__title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #16181f;
+}
+
+.image-toolbar__btns {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.image-toolbar__btn {
+  font-size: 26rpx;
+  color: #2b6cff;
+  font-weight: 500;
+  padding: 8rpx 20rpx;
+  background: rgba(43, 108, 255, 0.08);
+  border-radius: 24rpx;
+}
+
+.image-toolbar__btn--none {
+  color: #ff3b30;
+  background: rgba(255, 59, 48, 0.08);
+}
+
+/* 横向滑动容器 */
+.image-hscroll {
+  width: 100%;
+  white-space: nowrap;
+  padding: 8rpx 0 16rpx;
+}
+
+.image-hscroll__inner {
+  display: inline-flex;
+  padding: 0 24rpx;
+  gap: 16rpx;
+}
+
+/* 单张图片卡片 */
+.image-card {
+  position: relative;
+  width: 300rpx;
+  height: 400rpx;
+  flex-shrink: 0;
+  border-radius: 20rpx;
+  overflow: hidden;
+  border: 4rpx solid transparent;
+  box-shadow: 0 12rpx 32rpx -16rpx rgba(31, 38, 60, 0.3);
+}
+
+.image-card--selected {
+  border-color: #2b6cff;
+}
+
+.image-card__img {
+  width: 100%;
+  height: 100%;
+  background: #e9ebf1;
+  display: block;
+}
+
+/* 勾选标记（右上角圆形） */
+.image-card__check {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2rpx solid rgba(22, 24, 31, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
+
+.image-card__check--on {
+  background: #2b6cff;
+  border-color: #2b6cff;
+}
+
+.image-card__check-icon {
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 序号角标 */
+.image-card__index {
+  position: absolute;
+  bottom: 14rpx;
+  left: 14rpx;
+  font-size: 22rpx;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+}
+
+/* 选中状态提示 */
+.image-select-hint {
+  text-align: center;
+  padding: 4rpx 0 20rpx;
+}
+
+.image-select-hint__text {
+  font-size: 24rpx;
+  color: #878c9b;
+}
+
 /* ---- 网页视频列表 ---- */
 .list-section {
   background: transparent;

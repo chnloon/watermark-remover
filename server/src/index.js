@@ -241,14 +241,33 @@ app.get('/api/download', async (req, res) => {
   try {
     const decodedUrl = decodeURIComponent(fileUrl);
 
+    // 按 CDN 域名动态选择 Referer（与 /proxy/video 一致）：
+    // 抖音系 CDN 需要抖音 Referer；xhscdn（小红书）对抖音 Referer 直接 403；
+    // 快手系 CDN 需要快手 Referer
+    let referer = '';
+    try {
+      const host = new URL(decodedUrl).hostname;
+      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+        referer = 'https://www.douyin.com/';
+      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+        referer = 'https://www.kuaishou.com/';
+      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+        referer = 'https://www.xiaohongshu.com/';
+      }
+    } catch { /* 非法 URL 交由 axios 报错 */ }
+
+    const requestHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36',
+      'Accept': '*/*',
+    };
+    if (referer) {
+      requestHeaders['Referer'] = referer;
+    }
+
     const response = await axios({
       method: 'GET',
       url: decodedUrl,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36',
-        'Referer': 'https://www.douyin.com/',
-        'Accept': '*/*',
-      },
+      headers: requestHeaders,
       responseType: 'stream',
       timeout: 120000,
       maxRedirects: 5,

@@ -17,6 +17,8 @@ Page({
     videoError: false,
     currentUrl: '',
     hasVideoUrl: false,
+    selectedImages: [],
+    selectedCount: 0,
   },
 
   onLoad() {
@@ -33,6 +35,9 @@ Page({
       currentUrl: '',
       // 视频地址缺失时渲染浅色占位，避免空 src 的 video 黑底
       hasVideoUrl: !!(result.data.proxyVideoUrl || result.data.videoUrl),
+      // 图片多选：初始全部未选中
+      selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
+      selectedCount: 0,
     });
 
     // 保存到历史记录
@@ -145,6 +150,9 @@ Page({
           currentUrl: '',
           videoStatus: '正在加载视频...',
           videoError: false,
+          // 图片多选状态重置：初始全部未选中
+          selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
+          selectedCount: 0,
         });
 
         this.saveToHistory(result);
@@ -162,6 +170,44 @@ Page({
    */
   onSwiperChange(e) {
     this.setData({ currentImageIndex: e.detail.current });
+  },
+
+  /**
+   * 切换单张图片的选中状态
+   */
+  onToggleImage(e) {
+    const index = e.currentTarget.dataset.index;
+    const selected = this.data.selectedImages.slice();
+    if (index >= 0 && index < selected.length) {
+      selected[index] = !selected[index];
+      this.setData({
+        selectedImages: selected,
+        selectedCount: selected.filter(Boolean).length,
+      });
+    }
+  },
+
+  /**
+   * 全选所有图片
+   */
+  onSelectAll() {
+    const selected = this.data.selectedImages.map(() => true);
+    this.setData({
+      selectedImages: selected,
+      selectedCount: selected.length,
+    });
+    app.showToast('已全选');
+  },
+
+  /**
+   * 全不选（清空所有选择）
+   */
+  onSelectNone() {
+    const selected = this.data.selectedImages.map(() => false);
+    this.setData({
+      selectedImages: selected,
+      selectedCount: 0,
+    });
   },
 
   /**
@@ -427,7 +473,8 @@ Page({
   },
 
   /**
-   * 保存图片到相册
+   * 保存图片到相册 — 只保存用户选中的图片
+   * 优先直连原始 URL（用户手机 IP 可信，图床不风控），失败再走代理兜底
    */
   async onSaveImages() {
     const images = this.data.resultData.data.images;
@@ -437,7 +484,17 @@ Page({
       return;
     }
 
-    const downloadTargets = (proxyImages && proxyImages.length === images.length) ? proxyImages : images;
+    // 收集选中的图片索引
+    const selected = this.data.selectedImages || [];
+    const selectedIndexes = [];
+    for (let i = 0; i < selected.length; i++) {
+      if (selected[i]) selectedIndexes.push(i);
+    }
+
+    if (selectedIndexes.length === 0) {
+      app.showToast('请先选择要保存的图片');
+      return;
+    }
 
     // 主动索取相册权限
     const granted = await this.ensureAlbumPermission();
@@ -448,39 +505,57 @@ Page({
 
     this.setData({
       isSaving: true,
-      imageSaveProgress: { current: 0, total: images.length },
+      imageSaveProgress: { current: 0, total: selectedIndexes.length },
     });
 
+    let savedCount = 0;
     try {
-      for (let i = 0; i < downloadTargets.length; i++) {
-        const downloadRes = await wx.downloadFile({
-          url: downloadTargets[i],
-          timeout: 60000,
-        });
+      for (let k = 0; k < selectedIndexes.length; k++) {
+        const i = selectedIndexes[k];
+        // 优先直连原始图片 URL（手机 IP 可访问图床）
+        const directUrl = images[i];
+        const proxyUrl = (proxyImages && proxyImages.length === images.length) ? proxyImages[i] : null;
 
-        if (downloadRes.statusCode !== 200) {
-          console.error(`图片 ${i + 1} 下载失败 (状态码: ${downloadRes.statusCode})`);
-          if (downloadTargets[i] !== images[i]) {
-            app.showToast(`第 ${i + 1} 张重试...`);
-            const retryRes = await wx.downloadFile({
-              url: images[i],
-              timeout: 60000,
-            });
-            if (retryRes.statusCode !== 200) continue;
-            await wx.saveImageToPhotosAlbum({ filePath: retryRes.tempFilePath });
-          } else {
-            continue;
+        let downloadRes = null;
+        try {
+          downloadRes = await wx.downloadFile({ url: directUrl, timeout: 60000 });
+          if (downloadRes.statusCode !== 200) {
+            // 直连失败 → 走代理兜底
+            if (proxyUrl && proxyUrl !== directUrl) {
+              const retryRes = await wx.downloadFile({ url: proxyUrl, timeout: 60000 });
+              if (retryRes.statusCode === 200) downloadRes = retryRes;
+            }
           }
-        } else {
-          await wx.saveImageToPhotosAlbum({
-            filePath: downloadRes.tempFilePath,
-          });
+        } catch (directErr) {
+          // 直连异常 → 走代理兜底
+          if (proxyUrl && proxyUrl !== directUrl) {
+            try {
+              const retryRes = await wx.downloadFile({ url: proxyUrl, timeout: 60000 });
+              if (retryRes.statusCode === 200) downloadRes = retryRes;
+            } catch { /* 忽略 */ }
+          }
         }
 
-        this.setData({ 'imageSaveProgress.current': i + 1 });
+        if (!downloadRes || downloadRes.statusCode !== 200) {
+          console.error(`图片 ${i + 1} 下载失败`);
+          continue;
+        }
+
+        try {
+          await wx.saveImageToPhotosAlbum({ filePath: downloadRes.tempFilePath });
+          savedCount++;
+        } catch (saveErr) {
+          console.error(`图片 ${i + 1} 保存失败:`, saveErr);
+        }
+
+        this.setData({ 'imageSaveProgress.current': k + 1 });
       }
 
-      app.showToast(`✅ 已保存 ${this.data.imageSaveProgress.current}/${images.length}`, 'success');
+      if (savedCount > 0) {
+        app.showToast(`✅ 已保存 ${savedCount}/${selectedIndexes.length}`, 'success');
+      } else {
+        app.showToast('保存失败，请重试');
+      }
     } catch (err) {
       console.error('保存图片失败:', err);
       app.showToast('保存失败: ' + (err.errMsg || err.message));
