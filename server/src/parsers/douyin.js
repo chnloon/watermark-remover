@@ -33,85 +33,178 @@ function getLastDiagnostics() {
   return lastDiagnostics;
 }
 
+// ============================================================
+// LRU 解析结果缓存
+// 同一视频重复解析时直接命中，避免全链路重跑（省时 + 降低平台风控压力）
+// ============================================================
+const CACHE_MAX_ENTRIES = 500;          // 最多缓存 500 条
+const CACHE_TTL_MS = 30 * 60 * 1000;    // TTL 30 分钟
+const resultCache = new Map();          // key(videoId|url) -> { data, expiresAt }
+
+function cacheGet(key) {
+  if (!key) return null;
+  const entry = resultCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    resultCache.delete(key);
+    return null;
+  }
+  // LRU touch：删掉再重插，让 Map 保持"最旧在前"
+  resultCache.delete(key);
+  resultCache.set(key, entry);
+  return entry.data;
+}
+
+function cacheSet(key, data) {
+  if (!key || !data) return;
+  if (resultCache.size >= CACHE_MAX_ENTRIES) {
+    // 淘汰最旧的（Map 第一个 key）
+    const oldestKey = resultCache.keys().next().value;
+    resultCache.delete(oldestKey);
+  }
+  resultCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+/** 带超时的 Promise 包装：到点返回失败结果，不阻塞整体 */
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve({ success: false, error: `${label}超时(${ms}ms)` }), ms);
+    promise
+      .then((result) => { clearTimeout(timer); resolve(result); })
+      .catch((err) => { clearTimeout(timer); resolve({ success: false, error: `${label}:${err.message}` }); });
+  });
+}
+
+/** 把浏览器解析器的结果转换为标准响应格式 */
+function normalizeBrowserResult(browserResult, videoId) {
+  return {
+    success: true,
+    platform: 'douyin',
+    data: {
+      title: browserResult.title || '',
+      coverUrl: browserResult.coverUrl || '',
+      videoUrl: browserResult.videoUrl || '',
+      videoId: browserResult.videoId || videoId || '',
+      author: { name: browserResult.author || '', avatar: browserResult.avatar || '' },
+      source: 'douyin',
+      type: 'video',
+      duration: browserResult.duration || 0,
+      statistics: {
+        digg_count: browserResult.likes || 0,
+        share_count: browserResult.shares || 0,
+        comment_count: browserResult.comments || 0,
+      },
+    },
+  };
+}
+
 /**
  * 解析抖音分享链接
+ *
+ * 策略（并行 + 缓存，按优先级降序）:
+ *   1. LRU 缓存命中（videoId/URL → 结果，30 分钟 TTL）
+ *   2. 【并行】API 直连 / H5 页面 SSR / Playwright 浏览器，三路同时发起，谁先成功用谁
+ *   3. lux Go CLI 解析（内置 X-Bogus 签名，慢速兜底）
+ *   4. 第三方解析 API 降级
  */
 async function parse(shareUrl) {
   // 收集各步骤失败原因，用于内部诊断
   const failReasons = [];
+  const startTime = Date.now();
 
   try {
-    // 第一步：解析短链接，获取完整 URL
-    const fullUrl = await resolveShortUrl(shareUrl);
-    if (!fullUrl && /v\.douyin\.com/i.test(shareUrl)) {
-      // 抖音对数据中心/低信誉 IP 的短链风控：302 直接跳到首页，无视频 ID
-      failReasons.push('短链:抖音风控(302→首页,无视频ID)');
+    // 第一步：解析短链接，获取完整 URL（仅当输入是短链时才需要）
+    // 前端已负责解码 v.douyin.com 短链，服务端收到的大多是完整链接，可直接提取 ID
+    let fullUrl = null;
+    if (/v\.douyin\.com/i.test(shareUrl) && !/video\/\d{17,21}/.test(shareUrl)) {
+      fullUrl = await resolveShortUrl(shareUrl);
+      if (!fullUrl) {
+        // 抖音对数据中心/低信誉 IP 的短链风控：302 直接跳到首页，无视频 ID
+        failReasons.push('短链:抖音风控(302→首页,无视频ID)');
+      }
     }
     const targetUrl = fullUrl || shareUrl;
-    let videoId = extractDouyinVideoId(targetUrl);
+    const videoId = extractDouyinVideoId(targetUrl);
 
-    // 第二步：尝试直接 API 请求
+    // ---- 缓存命中检查 ----
+    const cacheKey = videoId || targetUrl;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      console.log(`[抖音] 缓存命中: ${cacheKey} (${Date.now() - startTime}ms)`);
+      return cached;
+    }
+
+    // ---- 并行三路：API / 页面 SSR / 浏览器 ----
+    const strategies = [];
+
     if (videoId) {
-      const apiResult = await fetchViaApi(videoId);
-      if (apiResult.success) return apiResult;
-      failReasons.push('API:' + (apiResult.error || '失败'));
+      strategies.push({
+        name: 'API',
+        run: () => fetchViaApi(videoId),
+        timeout: 6000,
+      });
     }
-
-    // 第三步：浏览器解析（绕过 JSVM 反爬）
-    // 使用 headless Chromium 解 JSVM 挑战后调用 API
     if (videoId || fullUrl) {
-      const browserInput = videoId || targetUrl;
-      const browserResult = await parseViaBrowser(browserInput);
-      if (browserResult.success) {
-        // 转换到标准响应格式
-        return {
-          success: true,
-          platform: 'douyin',
-          data: {
-            title: browserResult.title || '',
-            coverUrl: browserResult.coverUrl || '',
-            videoUrl: browserResult.videoUrl || '',
-            videoId: browserResult.videoId || videoId || '',
-            author: { name: browserResult.author || '', avatar: browserResult.avatar || '' },
-            source: 'douyin',
-            type: 'video',
-            duration: browserResult.duration || 0,
-            statistics: {
-              digg_count: browserResult.likes || 0,
-              share_count: browserResult.shares || 0,
-              comment_count: browserResult.comments || 0,
-            },
-          },
-        };
-      }
-      // 浏览器解析失败不阻断——继续降级
-      failReasons.push('浏览器:' + (browserResult.error || '失败'));
-      if (browserResult.error && !browserResult.error.includes('格式')) {
-        console.error('[抖音] 浏览器解析失败:', browserResult.error);
-      }
+      strategies.push({
+        name: '页面SSR',
+        run: () => fetchViaPage(targetUrl, videoId),
+        timeout: 8000,
+      });
+    }
+    if (videoId || fullUrl) {
+      strategies.push({
+        name: '浏览器',
+        run: () => {
+          const browserInput = videoId || targetUrl;
+          return parseViaBrowser(browserInput).then((br) => {
+            if (!br.success) return br;
+            return normalizeBrowserResult(br, videoId);
+          });
+        },
+        timeout: 15000,
+      });
     }
 
-    // 第四步：尝试 HTML 页面解析（cheerio，基本被 JSVM 阻断）
-    const pageResult = await fetchViaPage(targetUrl, videoId);
-    if (pageResult.success) return pageResult;
-    failReasons.push('Cheerio:' + (pageResult.error || '无数据'));
+    // 并行执行所有策略，等全部 settle 后按优先级取第一个成功
+    console.log(`[抖音] 并行发起 ${strategies.length} 路解析: ${strategies.map(s => s.name).join('/')}`);
+    const settled = await Promise.all(
+      strategies.map((s) => withTimeout(s.run(), s.timeout, s.name))
+    );
 
-    // 第五步：lux Go CLI 解析（内置 X-Bogus 签名）
-    // 构建干净 URL（去掉 tracking 参数避免 lux 混淆）
+    let winner = null;
+    settled.forEach((result, idx) => {
+      if (!result.success) {
+        failReasons.push(`${strategies[idx].name}:${result.error || '失败'}`);
+      } else if (!winner) {
+        winner = result;
+      }
+    });
+
+    if (winner) {
+      cacheSet(cacheKey, winner);
+      console.log(`[抖音] ${strategies[settled.indexOf(winner)].name} 解析成功 (${Date.now() - startTime}ms)`);
+      return winner;
+    }
+
+    // ---- 慢速兜底 1：lux Go CLI（内置 X-Bogus 签名） ----
     const cleanUrl = videoId
       ? `https://www.douyin.com/video/${videoId}`
       : targetUrl.split('?')[0]; // 无 videoId 时仅保留 path
-    const luxResult = await parseViaLux(cleanUrl);
-    if (luxResult.success) return luxResult;
+    const luxResult = await withTimeout(parseViaLux(cleanUrl), 20000, 'lux');
+    if (luxResult.success) {
+      cacheSet(cacheKey, luxResult);
+      return luxResult;
+    }
     console.error('[抖音] lux 解析失败:', luxResult.error);
     failReasons.push('lux:' + (luxResult.error || '失败'));
 
-    // 第六步：第三方 API 降级
+    // ---- 慢速兜底 2：第三方 API ----
     // 在所有解析方式失败前，先打印完整诊断
     console.error('[抖音] 全部解析方式均失败:', failReasons.join(' → '));
     lastDiagnostics = {
       at: new Date().toISOString(),
       shareUrl,
+      durationMs: Date.now() - startTime,
       failReasons: failReasons.slice(),
     };
     return await fallbackToThirdParty(targetUrl, videoId, luxResult);
@@ -120,6 +213,7 @@ async function parse(shareUrl) {
     lastDiagnostics = {
       at: new Date().toISOString(),
       shareUrl,
+      durationMs: Date.now() - startTime,
       exception: err.message,
       failReasons: failReasons.slice(),
     };
@@ -166,6 +260,7 @@ async function resolveShortUrl(shortUrl) {
  *
  * 抖音 aweme API 曾需要 X-Gorgon/X-Khronos 签名，
  * 但部分场景下（合适的 UA + Cookie）仍可直连。
+ * 两个 endpoint 并行请求，谁先返回有效数据用谁（省时）。
  */
 async function fetchViaApi(videoId) {
   const apiUrls = [
@@ -173,26 +268,30 @@ async function fetchViaApi(videoId) {
     `https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id=${videoId}`,
   ];
 
-  for (const apiUrl of apiUrls) {
-    try {
-      const response = await axios.get(apiUrl, {
-        headers: {
-          'User-Agent': DOUYIN_UA,
-          Referer: 'https://www.douyin.com/',
-          Accept: 'application/json',
-        },
-        timeout: 10000,
-      });
+  const results = await Promise.all(
+    apiUrls.map((apiUrl) =>
+      axios
+        .get(apiUrl, {
+          headers: {
+            'User-Agent': DOUYIN_UA,
+            Referer: 'https://www.douyin.com/',
+            Accept: 'application/json',
+          },
+          timeout: 6000,
+        })
+        .then((response) => ({ response }))
+        .catch(() => ({ response: null }))
+    )
+  );
 
-      const data = response.data;
-      if (data && data.aweme_detail) {
-        return extractFromAwemeDetail(data.aweme_detail, videoId);
-      }
-      if (data && data.aweme_details && data.aweme_details.length > 0) {
-        return extractFromAwemeDetail(data.aweme_details[0], videoId);
-      }
-    } catch {
-      // 继续尝试下一个 endpoint
+  for (const { response } of results) {
+    if (!response) continue;
+    const data = response.data;
+    if (data && data.aweme_detail) {
+      return extractFromAwemeDetail(data.aweme_detail, videoId);
+    }
+    if (data && data.aweme_details && data.aweme_details.length > 0) {
+      return extractFromAwemeDetail(data.aweme_details[0], videoId);
     }
   }
   return { success: false };
@@ -274,7 +373,7 @@ async function fetchViaPage(url, videoId) {
             Accept: 'text/html,application/xhtml+xml',
             'Accept-Language': 'zh-CN,zh;q=0.9',
           },
-          timeout: 15000,
+          timeout: 8000,
         });
         html = response.data;
         // JSVM 挑战壳（无真实数据）跳过，继续下一个候选
