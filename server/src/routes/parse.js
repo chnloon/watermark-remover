@@ -65,10 +65,12 @@ router.post('/parse', async (req, res) => {
 
 	      // 如果解析成功，添加代理地址（视频播放 + 图片下载）
       if (result.success && result.data) {
-        // CloudRun 网关到容器为 http 转发（req.protocol 恒为 http），
-        // 但对外只提供 https —— 小程序 iOS 的 video/wx.downloadFile 均要求 https，
-        // 因此代理 URL 一律用 https 构造
-        const protocol = 'https';
+        // 协议自适应：
+        // - 本地开发（localhost/内网）：http，video 组件可正常播放
+        // - 线上（CloudRun 网关）：对外只提供 https，但 req.protocol 恒为 http，
+        //   小程序 iOS 的 video/wx.downloadFile 要求 https，因此线上必须用 https 构造
+        const isLocalHost = /^(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(req.get('host') || '');
+        const protocol = isLocalHost ? 'http' : 'https';
         const host = req.get('host');
         const baseDownload = `${protocol}://${host}/api/download?url=`;
         const proxyVideoBase = `${protocol}://${host}/proxy/video?url=`;
