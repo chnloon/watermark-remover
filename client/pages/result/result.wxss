@@ -460,6 +460,17 @@
   border: none;
 }
 
+/* 清空状态：红字区分，明确"删除内容"语义 */
+.reparse-bar__btn--clear {
+  color: #ff3b30;
+  border-color: rgba(255, 59, 48, 0.25);
+  background: rgba(255, 245, 245, 0.9);
+}
+
+.reparse-bar__btn--clear:active {
+  background: rgba(255, 59, 48, 0.12);
+}
+
 .reparse-bar__btn:active {
   background: rgba(255, 255, 255, 0.5);
 }

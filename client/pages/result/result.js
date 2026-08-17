@@ -29,7 +29,8 @@ Page({
 
     this.setData({
       resultData: result,
-      currentUrl: app.globalData.lastInputUrl || '',
+      // 输入框保持空白，方便用户重新粘贴新链接解析
+      currentUrl: '',
       // 视频地址缺失时渲染浅色占位，避免空 src 的 video 黑底
       hasVideoUrl: !!(result.data.proxyVideoUrl || result.data.videoUrl),
     });
@@ -55,7 +56,8 @@ Page({
    */
   preloadVideo(result) {
     if (!result || !result.data || result.data.type !== 'video') return;
-    const videoUrl = result.data.proxyVideoUrl || result.data.videoUrl;
+    // 预取用原始 videoUrl（proxyVideoUrl 本身就是代理地址，再套一层会二次代理）
+    const videoUrl = result.data.videoUrl;
     if (!videoUrl) return;
 
     // 仅请求前 256KB 预缓存
@@ -75,13 +77,29 @@ Page({
 
   /**
    * 粘贴栏输入变化
+   * 手动输入时按钮随内容切换（有内容→清空，空白→粘贴）
    */
   onUrlInput(e) {
     this.setData({ currentUrl: e.detail.value });
   },
 
   /**
-   * 从剪贴板粘贴
+   * 底部按钮点击 — 双态:
+   * - currentUrl 为空: 从剪贴板粘贴并自动解析
+   * - currentUrl 非空: 一键清空输入框
+   */
+  onReparseBarBtn() {
+    if (this.data.currentUrl) {
+      // 有内容 → 清空
+      this.setData({ currentUrl: '' });
+      app.showToast('已清空', 'success');
+    } else {
+      this.onPasteUrl();
+    }
+  },
+
+  /**
+   * 从剪贴板粘贴并自动解析
    */
   async onPasteUrl() {
     try {
@@ -123,7 +141,8 @@ Page({
 
         this.setData({
           resultData: result,
-          currentUrl: url,
+          // 解析成功后清空输入框，保持空白方便继续粘贴新链接
+          currentUrl: '',
           videoStatus: '正在加载视频...',
           videoError: false,
         });

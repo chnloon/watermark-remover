@@ -27,10 +27,10 @@ const parsers = {
  * 解析视频/图片链接
  */
 router.post('/parse', async (req, res) => {
-  const { url } = req.body;
+  const rawUrl = req.body && req.body.url;
 
-  // 参数校验
-  if (!url) {
+  // 参数校验（类型防护：url 必须是字符串）
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
     return res.status(400).json({
       success: false,
       error: '请提供需要解析的链接',
@@ -38,7 +38,7 @@ router.post('/parse', async (req, res) => {
   }
 
   // 从文本中提取真正的链接（用户粘贴的可能包含文案）
-  const cleanUrl = extractUrl(url.trim());
+  const cleanUrl = extractUrl(rawUrl.trim());
 
   // 自动检测平台
   const platform = detectPlatform(cleanUrl);

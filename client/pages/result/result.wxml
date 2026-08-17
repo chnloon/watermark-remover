@@ -205,7 +205,7 @@
           confirm-type="search"
           bindconfirm="onReParse"
         />
-        <button class="reparse-bar__btn" bindtap="onPasteUrl">粘贴</button>
+        <button class="reparse-bar__btn {{currentUrl ? 'reparse-bar__btn--clear' : ''}}" bindtap="onReparseBarBtn">{{currentUrl ? '清空' : '粘贴'}}</button>
       </view>
     </view>
 
