@@ -11,6 +11,59 @@ const { parseViaThirdParty } = require('../services/thirdPartyApi');
 const { parseViaLux } = require('../services/luxParser');
 
 /**
+ * 清洗小红书图片 URL 为原图直链
+ *
+ * 小红书图床 URL 通常带缩略图后缀（低清 webp 压缩版）：
+ *   https://sns-webpic-qc.xhscdn.com/xxx!nd_dft_wlteh_webp_3
+ *   https://sns-webpic-qc.xhscdn.com/xxx!thumb
+ * 去掉 "!" 及其后的后缀即得原图地址（高分辨率）。
+ *
+ * @param {string} url 原始图片 URL
+ * @returns {string} 原图 URL（https）
+ */
+function cleanImageUrl(url) {
+  if (!url) return '';
+  let clean = url.trim();
+  // 去掉缩略图后缀（! 开头的一段）
+  const bangIdx = clean.indexOf('!');
+  if (bangIdx > 0) {
+    clean = clean.substring(0, bangIdx);
+  }
+  // 统一转 https
+  if (clean.startsWith('http://')) {
+    clean = clean.replace(/^http:\/\//, 'https://');
+  }
+  return clean;
+}
+
+/**
+ * 从 imageList 单项中提取最高清原图 URL
+ * 小红书结构: { urlDefault | url | infoList: [{ image: { url, width, height } }] }
+ * infoList 按清晰度排列时取最大 width 的那一档
+ */
+function extractBestImageUrl(img) {
+  if (!img) return '';
+  if (typeof img === 'string') return img;
+  if (img.urlDefault) return img.urlDefault;
+  if (img.url) return img.url;
+  if (Array.isArray(img.infoList) && img.infoList.length) {
+    // 找 width 最大的版本（最高清）
+    let best = null;
+    let bestWidth = -1;
+    for (const entry of img.infoList) {
+      if (!entry || !entry.image || !entry.image.url) continue;
+      const w = entry.image.width || 0;
+      if (w > bestWidth) {
+        bestWidth = w;
+        best = entry.image.url;
+      }
+    }
+    return best || '';
+  }
+  return '';
+}
+
+/**
  * 解析小红书分享链接
  * @param {string} shareUrl
  * @returns {Promise<object>}
@@ -158,12 +211,13 @@ async function scrapeNoteContent(url) {
       } catch (e) { /* ignore */ }
     });
 
-    // 从页面中提取图片列表
+    // 从页面中提取图片列表（清洗缩略图后缀，取原图）
     const images = [];
     $('img').each((i, el) => {
       const src = $(el).attr('src') || $(el).attr('data-src') || '';
       if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
-        images.push(src);
+        const clean = cleanImageUrl(src);
+        if (clean) images.push(clean);
       }
     });
 
@@ -206,22 +260,39 @@ async function scrapeNoteContent(url) {
       } catch (e) { /* ignore */ }
     });
 
-    // 尝试从 initialState 中提取视频信息
+    // 尝试从 initialState 中提取视频/图片信息
     let videoUrl = ogVideo || ogVideoUrl;
     let noteTitle = '';
     let authorName = '';
     let coverFromState = '';
-    if (!videoUrl && initialState) {
-      // 遍历查找视频 URL
+    // SSR 图片列表（原图直链）—— 优先于页面 <img> 扫描
+    let stateImages = [];
+    if (initialState) {
+      // 遍历查找笔记对象（视频笔记取 video.stream，图片笔记取 imageList）
       try {
         const note = findNoteInState(initialState);
-        if (note && note.video && note.video.media && note.video.media.stream) {
-          videoUrl = extractVideoUrl(note.video.media.stream);
-          // 同步补全笔记元数据（SSR 数据比页面 meta 更完整）
+        if (note) {
           noteTitle = note.title || note.desc || '';
           authorName = note.user && note.user.nickName ? note.user.nickName : '';
           if (note.cover && note.cover.fileId) {
-            coverFromState = `https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`;
+            coverFromState = cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`);
+          }
+          // 视频笔记
+          if (!videoUrl && note.video && note.video.media && note.video.media.stream) {
+            videoUrl = extractVideoUrl(note.video.media.stream);
+          }
+          // 图片笔记：从 imageList 提取原图直链
+          // 小红书 2024+ 结构: note.imageList[] → { urlDefault | infoList[].image.url }
+          if (Array.isArray(note.imageList)) {
+            for (const img of note.imageList) {
+              if (!img) continue;
+              // 提取最高清版本并清洗缩略图后缀（取原图分辨率）
+              const rawUrl = extractBestImageUrl(img);
+              const imgUrl = cleanImageUrl(rawUrl);
+              if (imgUrl) {
+                stateImages.push(imgUrl);
+              }
+            }
           }
         }
       } catch (e) { /* ignore */ }
@@ -259,13 +330,24 @@ async function scrapeNoteContent(url) {
     }
 
     // 图片笔记
+    // 合并 SSR 原图列表 + 页面扫描图（去重），SSR 原图优先
+    const allImages = [];
+    const seenImg = new Set();
+    for (const u of [...stateImages, ...images]) {
+      if (u && !seenImg.has(u)) {
+        seenImg.add(u);
+        allImages.push(u);
+      }
+    }
+    const finalImages = allImages.length > 0 ? allImages : (ogImage ? [cleanImageUrl(ogImage)] : []);
+
     return {
       success: true,
       platform: 'xiaohongshu',
       data: {
         title: title || noteTitle || description || '',
-        coverUrl: ogImage || coverFromState || (images.length > 0 ? images[0] : ''),
-        images: images.length > 0 ? images : (ogImage ? [ogImage] : []),
+        coverUrl: ogImage || coverFromState || (finalImages.length > 0 ? finalImages[0] : ''),
+        images: finalImages,
         noteId: extractNoteId(url),
         source: 'xiaohongshu',
         type: 'image',

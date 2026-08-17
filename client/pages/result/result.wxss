@@ -272,6 +272,19 @@
   display: block;
 }
 
+/* 图片加载失败占位 */
+.image-card__img--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f1f5;
+}
+
+.image-card__fallback-text {
+  font-size: 24rpx;
+  color: #b0b4c0;
+}
+
 /* 勾选标记（右上角圆形） */
 .image-card__check {
   position: absolute;

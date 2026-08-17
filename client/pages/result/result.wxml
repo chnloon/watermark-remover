@@ -83,12 +83,29 @@
             data-index="{{index}}"
             bindtap="onToggleImage"
           >
+            <!-- 多源兜底: 直连图床失败时自动切换到代理地址 -->
             <image
+              wx:if="{{!imageErrors[index]}}"
               class="image-card__img"
               src="{{item}}"
               mode="aspectFill"
               lazy-load
+              binderror="onImageError"
+              data-index="{{index}}"
             />
+            <image
+              wx:elif="{{resultData.data.proxyImages && resultData.data.proxyImages[index]}}"
+              class="image-card__img"
+              src="{{resultData.data.proxyImages[index]}}"
+              mode="aspectFill"
+              lazy-load
+              binderror="onImageError"
+              data-index="{{index}}"
+            />
+            <!-- 全部失败占位 -->
+            <view wx:else class="image-card__img image-card__img--fallback">
+              <text class="image-card__fallback-text">加载失败</text>
+            </view>
             <!-- 勾选标记（右上角圆形） -->
             <view class="image-card__check {{selectedImages[index] ? 'image-card__check--on' : ''}}">
               <text wx:if="{{selectedImages[index]}}" class="image-card__check-icon">✓</text>

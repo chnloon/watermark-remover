@@ -20,6 +20,7 @@ Page({
     selectedImages: [],
     selectedCount: 0,
     allSelected: false,
+    imageErrors: [],
   },
 
   onLoad() {
@@ -40,6 +41,7 @@ Page({
       selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
       selectedCount: 0,
       allSelected: false,
+      imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
     });
 
     // 保存到历史记录
@@ -156,6 +158,7 @@ Page({
           selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
           selectedCount: 0,
           allSelected: false,
+          imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
         });
 
         this.saveToHistory(result);
@@ -173,6 +176,19 @@ Page({
    */
   onSwiperChange(e) {
     this.setData({ currentImageIndex: e.detail.current });
+  },
+
+  /**
+   * 图片加载失败处理 — 标记该图已尝试过直连
+   * (wxml 里直连失败会自动切到代理地址, 代理也失败则显示"加载失败"占位)
+   */
+  onImageError(e) {
+    const index = e.currentTarget.dataset.index;
+    const errors = this.data.imageErrors.slice();
+    if (index >= 0 && index < errors.length) {
+      errors[index] = true;
+      this.setData({ imageErrors: errors });
+    }
   },
 
   /**
