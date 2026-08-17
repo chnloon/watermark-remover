@@ -1,24 +1,87 @@
-/* 全局样式 — Apple 风格 */
+/* ========================================
+   去水印助手 — Global Styles
+   设计线：轻量线（浅色 + 毛玻璃）
+   来源：DESIGN.md 词汇变体 B（2026-07-31 校准入档）
+   ─────────────────────────────────────
+   canvas      #f3f4f7  浅灰蓝底（非纯白）
+   glass       rgba(255,255,255,0.38)   玻璃卡片
+   glass-strong rgba(255,255,255,0.78)  输入框/次级按钮
+   hairline    rgba(22,24,31,0.10)      1px 分区细线
+   hairline-edge rgba(255,255,255,0.65) 玻璃白描边
+   ink  #16181f / body #565b6a / muted #878c9b
+   primary #2b6cff（唯一电压色）/ accent #ff8a3d（只做柔光）
+   ======================================== */
 
+/* ---- 基础 ---- */
 page {
-  background-color: #f5f5f7;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  color: #1d1d1f;
+  background-color: #f3f4f7;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #16181f;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 卡片容器 — 柔和圆角 */
+/* 页面入场动画 — 0.35s ease */
+.page {
+  animation: fadeInPage 0.35s ease both;
+}
+
+/* ---- 背景底色层（随机换肤：低饱和浅色，垫在柔光层之下） ---- */
+.bg-tint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes fadeInPage {
+  from { opacity: 0; transform: translateY(12rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Large Title（display 负字距） ---- */
+.large-title {
+  font-size: 52rpx;
+  font-weight: 700;
+  letter-spacing: -0.5rpx;
+  color: #16181f;
+  line-height: 1.2;
+}
+
+/* —— 渐进出场（带延迟变体） —— */
+.fade-in-up {
+  animation: fadeInUp 0.4s ease both;
+}
+.fade-in-up--d1 { animation-delay: 0.05s; }
+.fade-in-up--d2 { animation-delay: 0.15s; }
+.fade-in-up--d3 { animation-delay: 0.25s; }
+.fade-in-up--d4 { animation-delay: 0.35s; }
+.fade-in-up--d5 { animation-delay: 0.45s; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* —— 玻璃卡片容器（glass 38% + blur 16px + 白描边 + 弱扩散影） —— */
 .card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1rpx solid rgba(255, 255, 255, 0.65);
   border-radius: 20rpx;
   padding: 30rpx;
   margin: 20rpx;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 24rpx 60rpx -24rpx rgba(31, 38, 60, 0.25);
 }
 
-/* 主要按钮 — Apple 蓝 */
+/* —— 主按钮（唯一电压色 #2b6cff） —— */
 .btn-primary {
-  background: #0071e3;
-  color: #fff;
+  background: #2b6cff;
+  color: #ffffff;
   border-radius: 50rpx;
   padding: 26rpx 0;
   font-size: 30rpx;
@@ -26,52 +89,47 @@ page {
   border: none;
   transition: opacity 0.2s;
 }
-
 .btn-primary:active {
   opacity: 0.85;
 }
-
 .btn-primary--disabled {
   opacity: 0.4;
   pointer-events: none;
 }
 
-/* 次要按钮 — 白色边框 */
+/* —— 次要按钮（glass-strong） —— */
 .btn-secondary {
-  background: #ffffff;
-  color: #0071e3;
-  border: 2rpx solid #d2d2d7;
+  background: rgba(255, 255, 255, 0.78);
+  color: #2b6cff;
+  border: 1rpx solid rgba(22, 24, 31, 0.10);
   border-radius: 50rpx;
   padding: 24rpx 0;
   font-size: 30rpx;
   text-align: center;
 }
-
 .btn-secondary:active {
-  background: #f5f5f7;
+  background: rgba(255, 255, 255, 0.5);
 }
 
-/* 输入框样式 */
+/* —— 输入框（glass-strong，比卡片实） —— */
 .input-box {
-  background: #ffffff;
-  border: 2rpx solid #d2d2d7;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1rpx solid rgba(22, 24, 31, 0.10);
   border-radius: 14rpx;
   padding: 24rpx 28rpx;
   font-size: 28rpx;
-  color: #1d1d1f;
+  color: #16181f;
   width: 100%;
   box-sizing: border-box;
 }
-
 .input-box:focus {
-  border-color: #0071e3;
+  border-color: #2b6cff;
 }
-
 .input-box::placeholder {
-  color: #86868b;
+  color: #878c9b;
 }
 
-/* 标签 */
+/* —— 标签 —— */
 .tag {
   display: inline-block;
   padding: 6rpx 18rpx;
@@ -79,34 +137,109 @@ page {
   font-size: 22rpx;
   margin: 4rpx;
 }
-
 .tag--success {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: rgba(55, 214, 122, 0.12);
+  color: #1c8f55;
 }
-
 .tag--info {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: rgba(43, 108, 255, 0.10);
+  color: #2b6cff;
 }
 
-/* 加载动画 — Apple 灰 */
+/* ---- 骨架屏（浅灰蓝调，脉动动画） ---- */
+
+/* 骨架屏容器 */
+.skeleton {
+  background: linear-gradient(90deg, #e9ebf1 25%, #e1e4ec 50%, #e9ebf1 75%);
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  border-radius: 12rpx;
+}
+
+@keyframes skeletonPulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 骨架屏变体 — 圆 */
+.skeleton--circle {
+  border-radius: 50%;
+}
+
+/* 骨架屏变体 — 胶囊 */
+.skeleton--capsule {
+  border-radius: 100rpx;
+}
+
+/* 专用：首页骨架结构 */
+.skeleton-index {
+  padding: 80rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.skeleton-index__title {
+  width: 200rpx;
+  height: 52rpx;
+  margin-bottom: 60rpx;
+}
+.skeleton-index__input {
+  width: 100%;
+  height: 88rpx;
+  margin-bottom: 40rpx;
+}
+.skeleton-index__icons {
+  display: flex;
+  gap: 30rpx;
+  margin-bottom: 80rpx;
+}
+.skeleton-index__icon {
+  width: 100rpx;
+  height: 80rpx;
+}
+.skeleton-index__footer {
+  width: 240rpx;
+  height: 24rpx;
+}
+
+/* 专用：结果页骨架 */
+.skeleton-result {
+  padding: 30rpx;
+}
+.skeleton-result__bar {
+  width: 100%;
+  height: 76rpx;
+  margin-bottom: 24rpx;
+}
+.skeleton-result__card {
+  width: 100%;
+  height: 480rpx;
+  margin-bottom: 30rpx;
+}
+.skeleton-result__btns {
+  display: flex;
+  gap: 20rpx;
+}
+.skeleton-result__btn {
+  flex: 1;
+  height: 80rpx;
+}
+
+/* —— 圆点加载动画 —— */
 .loading-spinner {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 60rpx;
 }
-
 .loading-spinner__dot {
   width: 14rpx;
   height: 14rpx;
   margin: 0 8rpx;
-  background: #86868b;
+  background: #878c9b;
   border-radius: 50%;
   animation: bounce 1.4s ease-in-out infinite both;
 }
-
 .loading-spinner__dot:nth-child(1) { animation-delay: -0.32s; }
 .loading-spinner__dot:nth-child(2) { animation-delay: -0.16s; }
 .loading-spinner__dot:nth-child(3) { animation-delay: 0s; }
@@ -116,11 +249,23 @@ page {
   40% { transform: scale(1); }
 }
 
-/* 视频状态文字 */
+/* —— 状态文字 —— */
 .video-status {
   display: block;
   text-align: center;
   font-size: 24rpx;
-  color: #86868b;
+  color: #878c9b;
   padding: 10rpx 0;
+}
+
+/* —— shake 动画（错误抖动） —— */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10rpx); }
+  40% { transform: translateX(10rpx); }
+  60% { transform: translateX(-6rpx); }
+  80% { transform: translateX(6rpx); }
+}
+.shake {
+  animation: shake 0.4s ease both;
 }

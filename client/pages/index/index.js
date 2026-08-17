@@ -1,61 +1,258 @@
 /**
- * 首页 - 链接解析入口
+ * 首页 — 去水印解析入口 (Apple Design)
+ * Phase 3 增强：剪贴板检测、骨架屏、统一错误处理
  */
 
 const app = getApp();
 
-// 标记是否由粘贴按钮触发，用于区分手动粘贴 vs 点击粘贴按钮
+// 标记是否由粘贴按钮触发
 let isPasteButtonClick = false;
+
+/**
+ * 小程序端解码抖音短链接（v.douyin.com/xxx）
+ *
+ * 抖音短链在服务器 IP 下会被风控：302 直接跳到首页（www.douyin.com），
+ * 拿不到视频 ID，完整链接链路则正常。但用户手机 IP 是可信流量——
+ * 从小程序端 wx.request 请求短链（自动跟随重定向），
+ * 在最终响应 HTML 中提取视频 ID，再以完整链接调服务端解析。
+ *
+ * 注意：需在小程序后台「request 合法域名」加入 v.douyin.com。
+ * 返回完整视频链接；解码失败返回 null（交由服务端兜底）。
+ */
+function resolveDouyinShortLink(input) {
+  // 输入可能是带分享文案的整段文本（如"8.88 复制打开抖音，看看xxx https://v.douyin.com/xxx/ 复制此链接"），
+  // 先提取干净 URL：优先 v.douyin.com 短链，否则取第一个 http 链接
+  const text = String(input || '');
+  let m = text.match(/https?:\/\/v\.douyin\.com\/[^\s"'<>，。；！？]+/);
+  if (!m) m = text.match(/https?:\/\/[^\s"'<>，。；！？]+/);
+  if (!m) return Promise.resolve(null);
+  const shortUrl = m[0];
+
+  return new Promise((resolve) => {
+    wx.request({
+      url: shortUrl,
+      method: 'GET',
+      timeout: 15000,
+      success: (res) => {
+        if (res.statusCode !== 200 || typeof res.data !== 'string' || res.data.length < 100) {
+          resolve(null);
+          return;
+        }
+        const html = res.data;
+        // 按优先级提取视频 ID（17-21 位数字）
+        const patterns = [
+          /share\/video\/(\d{17,21})/, // m.douyin.com/share/video/{id}
+          /aweme_id["']?\s*[:=]\s*["']?(\d{17,21})/, // 内嵌 JSON 字段
+          /\/video\/(\d{17,21})/, // /video/{id}
+          /video[=/](\d{17,21})/, // 通用兜底
+        ];
+        for (const re of patterns) {
+          const m = html.match(re);
+          if (m) {
+            resolve(`https://www.douyin.com/video/${m[1]}`);
+            return;
+          }
+        }
+        resolve(null);
+      },
+      fail: () => resolve(null),
+    });
+  });
+}
 
 Page({
   data: {
     inputUrl: '',
     isLoading: false,
-    buttonText: '粘贴',
+    showSkeleton: false,
+    autoFocus: false,
+
+    // 剪贴板检测
+    clipboardUrl: '',
+    clipboardDismissed: false,
+
+    // 平台列表 — 钢印风格 LOGO
     platforms: [
-      { id: 'douyin', name: '抖音', icon: '🎵', typesText: '视频' },
-      { id: 'kuaishou', name: '快手', icon: '🎬', typesText: '视频' },
-      { id: 'xiaohongshu', name: '小红书', icon: '📕', typesText: '视频/图片' },
+      { id: 'douyin', name: '抖音', image: '/images/douyin.svg' },
+      { id: 'kuaishou', name: '快手', image: '/images/kuaishou.svg' },
+      { id: 'xiaohongshu', name: '小红书', image: '/images/xiaohongshu.svg' },
     ],
+
+    // 动态布局间距（适配异形屏/Android）
+    topPadding: 0,
+    bottomPadding: 0,
   },
 
   /**
-   * 输入框内容变化
-   * - 点击粘贴按钮填入 → 在 onPaste 中处理，此处跳过
-   * - 手动粘贴/输入 → 自动解析
+   * 页面加载 — 计算动态布局 + 显示骨架屏
    */
+  onLoad() {
+    // 计算动态上下间距，适配 Android / 异形屏
+    this._calcLayoutPadding();
+
+    // 显示骨架屏 600ms（模拟优雅加载）
+    this.setData({ showSkeleton: true });
+    setTimeout(() => {
+      this.setData({ showSkeleton: false });
+    }, 600);
+  },
+
+  /**
+   * 根据设备状态栏和胶囊位置计算上下间距
+   */
+  _calcLayoutPadding() {
+    try {
+      const sys = wx.getSystemInfoSync();
+      const menuBtn = wx.getMenuButtonBoundingClientRect
+        ? wx.getMenuButtonBoundingClientRect()
+        : null;
+
+      let topPad, bottomPad;
+
+      if (menuBtn) {
+        // 胶囊底部 + 16px 间距 = 标题起始位置
+        topPad = menuBtn.top + menuBtn.height + 16;
+      } else {
+        // 降级：状态栏高度 + 固定值
+        topPad = (sys.statusBarHeight || 44) + 20;
+      }
+
+      if (sys.safeArea) {
+        // 底部安全距离
+        const bottomInset = sys.screenHeight - sys.safeArea.bottom;
+        bottomPad = Math.max(bottomInset, 12) + 12;
+      } else {
+        bottomPad = 24;
+      }
+
+      this.setData({
+        topPadding: topPad,
+        bottomPadding: bottomPad,
+      });
+    } catch (e) {
+      // 降级默认值
+      this.setData({ topPadding: 88, bottomPadding: 24 });
+    }
+  },
+
+  /**
+   * 页面显示 — 检测剪贴板（仅首次或从历史记录返回时）
+   */
+  onShow() {
+    // 背景底色：复刻登录页近白 #f3f4f7 固定，三页共享同一背景
+    const bgTint = app.getBgTint();
+    app.applyBgTint(bgTint);
+    this.setData({ bgTint });
+    // 从历史记录返回时，自动填入并解析
+    const pendingUrl = app.globalData.pendingHistoryUrl;
+    if (pendingUrl) {
+      app.globalData.pendingHistoryUrl = '';
+      this.setData({ inputUrl: pendingUrl, clipboardDismissed: true }, () => {
+        this.doParse(pendingUrl);
+      });
+      return;
+    }
+
+    // 检测剪贴板（如果输入框为空且尚未关闭提示）
+    if (!this.data.inputUrl && !this.data.clipboardDismissed) {
+      this.detectClipboard();
+    }
+  },
+
+  /**
+   * 检测剪贴板内容
+   */
+  async detectClipboard() {
+    try {
+      const res = await wx.getClipboardData({});
+      const text = (res.data || '').trim();
+      if (text && /https?:\/\//i.test(text)) {
+        this.setData({ clipboardUrl: text });
+      }
+    } catch (err) {
+      // 静默失败 — 剪贴板权限可能被拒绝
+      console.log('[剪贴板] 读取失败:', err.errMsg);
+    }
+  },
+
+  /**
+   * 一键解析剪贴板链接
+   */
+  onParseClipboard() {
+    const url = this.data.clipboardUrl;
+    if (url) {
+      isPasteButtonClick = true;
+      this.setData({
+        inputUrl: url,
+        clipboardUrl: '',
+        clipboardDismissed: true,
+      }, () => {
+        this.doParse(url);
+      });
+    }
+  },
+
+  /**
+   * 关闭剪贴板提示
+   */
+  onDismissClipboard() {
+    this.setData({
+      clipboardUrl: '',
+      clipboardDismissed: true,
+    });
+  },
+
+  /**
+   * 输入变化 — 带节流自动解析
+   */
+  _parseDebounceTimer: null,
+
   onInputChange(e) {
     const val = e.detail.value;
     this.setData({ inputUrl: val });
 
-    // 点击粘贴按钮填入的，onPaste 里会处理解析
+    // 点击粘贴按钮填入的由 onPaste 处理
     if (isPasteButtonClick) {
       isPasteButtonClick = false;
       return;
     }
 
-    // 手动操作：内容看起来像链接 → 自动解析
-    if (val.trim().length > 10) {
-      this.doParse(val.trim());
+    if (this._parseDebounceTimer) {
+      clearTimeout(this._parseDebounceTimer);
+    }
+
+    const trimmed = val.trim();
+    if (trimmed.length > 10 && /https?:\/\//i.test(trimmed)) {
+      this._parseDebounceTimer = setTimeout(() => {
+        this.doParse(trimmed);
+      }, 600);
     }
   },
 
   /**
-   * 搜索栏按钮点击 — 始终从剪贴板粘贴并自动解析
+   * 搜索栏按钮点击 — 从剪贴板粘贴 / 解析当前输入
    */
   async onSearchBarBtnTap() {
-    await this.onPaste();
+    if (this.data.inputUrl) {
+      this.doParse(this.data.inputUrl.trim());
+    } else {
+      await this.onPaste();
+    }
   },
 
   /**
-   * 从剪贴板粘贴并立即解析
+   * 从剪贴板粘贴
    */
   async onPaste() {
     try {
       const res = await wx.getClipboardData({});
       if (res.data) {
         isPasteButtonClick = true;
-        this.setData({ inputUrl: res.data }, () => {
+        this.setData({
+          inputUrl: res.data,
+          clipboardUrl: '',
+          clipboardDismissed: true,
+        }, () => {
           this.doParse(res.data.trim());
         });
       } else {
@@ -67,36 +264,78 @@ Page({
   },
 
   /**
+   * 键盘搜索键触发
+   */
+  onParseFromButton() {
+    const url = this.data.inputUrl.trim();
+    if (url) {
+      this.doParse(url);
+    }
+  },
+
+  /**
+   * 统一错误处理 — 显示具体错误 + 重试
+   */
+  showError(title, retryUrl) {
+    wx.showModal({
+      title: '解析失败',
+      content: title,
+      confirmText: '重试',
+      cancelText: '知道了',
+      success: (res) => {
+        if (res.confirm && retryUrl) {
+          this.doParse(retryUrl);
+        }
+      },
+    });
+  },
+
+  /**
    * 核心解析逻辑
    */
   async doParse(url) {
-    // 检测是否包含支持的平台域名
-    const supportedDomains = ['douyin.com', 'iesdouyin.com', 'kuaishou.com', 'gifshow.com', 'xiaohongshu.com', 'xhslink.com'];
-    const hasSupport = supportedDomains.some(domain => url.includes(domain));
-    if (!hasSupport) {
-      app.showToast('暂不支持该平台的链接');
-      return;
-    }
-
     this.setData({ isLoading: true });
 
     try {
+      // 抖音短链接：服务端 IP 下被风控（302→首页拿不到视频 ID），
+      // 但用户手机 IP 可信 —— 先在小程序端把短链解码成完整链接再解析
+      if (/v\.douyin\.com\/[\w-]+/.test(url) && !/\/video\/\d{17,21}/.test(url)) {
+        wx.showLoading({ title: '正在解析短链…', mask: true });
+        const fullLink = await resolveDouyinShortLink(url);
+        wx.hideLoading();
+        if (fullLink) {
+          url = fullLink;
+        } else {
+          // 解码失败：继续交给服务端兜底（如 lux / 三方 API）
+          console.log('[短链解码] 小程序端提取视频 ID 失败，交由服务端兜底');
+        }
+      }
+
       const result = await app.request('/parse', 'POST', { url });
 
       if (!result.success) {
-        app.showToast(result.error || '解析失败，请检查链接');
         this.setData({ isLoading: false });
+        this.showError(result.error || '解析失败，请检查链接是否有效', url);
         return;
       }
 
-      // 解析成功，存储结果并跳转
+      // 解析成功 — 存储并跳转
       app.globalData.lastParseResult = result;
       app.globalData.lastInputUrl = url;
       wx.navigateTo({
         url: '/pages/result/result',
       });
     } catch (err) {
-      app.showToast(err.message || '网络错误，请稍后重试');
+      this.setData({ isLoading: false });
+      const msg = err.message || '网络错误';
+
+      if (msg.includes('timeout') || msg.includes('超时')) {
+        this.showError('请求超时，请检查网络后重试', url);
+      } else if (msg.includes('网络')) {
+        this.showError('网络连接异常，请检查网络设置', url);
+      } else {
+        this.showError(msg + '，请稍后重试', url);
+      }
     } finally {
       this.setData({ isLoading: false });
     }

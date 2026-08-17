@@ -1,27 +1,78 @@
-<view class="page">
-  <!-- 主区域 — 垂直居中 -->
-  <view class="main-area">
-    <view class="search-section">
-      <!-- 搜索栏 -->
-      <view class="search-bar {{inputUrl ? 'search-bar--focused' : ''}}">
-        <text class="search-bar__icon">🔗</text>
+<!-- ========================================
+     首页 — 去水印 (Apple iOS Style)
+     ======================================== -->
+
+<view class="page page--index">
+
+  <!-- 背景：随机浅色底色 + 柔光层（玻璃卡片透出它才有材质感） -->
+  <view class="bg-tint" style="background: {{bgTint}}"></view>
+  <view class="bg-glow" aria-hidden="true">
+    <view class="bg-glow__orb bg-glow__orb--blue"></view>
+    <view class="bg-glow__orb bg-glow__orb--violet"></view>
+    <view class="bg-glow__orb bg-glow__orb--cyan"></view>
+    <view class="bg-glow__orb bg-glow__orb--pink"></view>
+    <view class="bg-glow__orb bg-glow__orb--orange"></view>
+  </view>
+
+  <!-- 骨架屏：数据加载中展示 -->
+  <view wx:if="{{showSkeleton}}" class="skeleton-index">
+    <view class="skeleton skeleton-index__title"></view>
+    <view class="skeleton skeleton-index__input"></view>
+    <view class="skeleton-index__icons">
+      <view class="skeleton skeleton-index__icon"></view>
+      <view class="skeleton skeleton-index__icon"></view>
+      <view class="skeleton skeleton-index__icon"></view>
+    </view>
+    <view class="skeleton skeleton-index__footer"></view>
+  </view>
+
+  <!-- 主界面 -->
+  <view wx:else class="main-area" style="padding-top: {{topPadding}}px; padding-bottom: {{bottomPadding}}px;">
+
+    <!-- iOS Large Title（用户提供谷歌风格设计 LOGO：文字+彩色贴图+藤蔓一体） -->
+    <view class="title-section fade-in-up">
+      <image class="logo-google" src="../../assets/logo-google.png" mode="aspectFit" aria-hidden="true" />
+      <text class="title-section__sub">粘贴链接，一键解析</text>
+    </view>
+
+    <!-- 粘贴输入区 — 圆角胶囊 -->
+    <view class="input-section fade-in-up--d1">
+      <view class="capsule-input {{inputUrl ? 'capsule-input--has-value' : ''}}">
         <input
-          class="search-bar__input"
-          placeholder="粘贴抖音 / 快手 / 小红书分享链接"
-          placeholder-class="search-bar__placeholder"
+          class="capsule-input__field"
+          placeholder="粘贴分享链接"
+          placeholder-class="capsule-input__placeholder"
           value="{{inputUrl}}"
           bindinput="onInputChange"
           maxlength="-1"
           confirm-type="search"
           bindconfirm="onParseFromButton"
+          focus="{{autoFocus}}"
         />
-        <button class="search-bar__btn" bindtap="onSearchBarBtnTap">
-          {{buttonText}}
+        <button
+          class="capsule-input__btn {{isLoading ? 'capsule-input__btn--loading' : ''}}"
+          bindtap="onSearchBarBtnTap"
+        >
+          <text wx:if="{{!isLoading}}">{{inputUrl ? '解析' : '粘贴'}}</text>
+          <text wx:else>解析中</text>
         </button>
+      </view>
+      <!-- 剪贴板检测提示条 -->
+      <view wx:if="{{clipboardUrl && !inputUrl && !clipboardDismissed}}" class="clipboard-hint fade-in-up--d2">
+        <text class="clipboard-hint__text">检测到剪贴板链接</text>
+        <button class="clipboard-hint__btn" bindtap="onParseClipboard">一键解析</button>
+        <text class="clipboard-hint__close" bindtap="onDismissClipboard">✕</text>
       </view>
     </view>
 
-    <!-- 底部 -->
-    <text class="footer__title">一键为您去除水印</text>
+    <!-- 弹性撑开 -->
+    <view class="spacer"></view>
+
+    <!-- 底部说明 -->
+    <view class="footer fade-in-up--d3">
+      <text class="footer__text">支持抖音 / 快手 / 小红书 / 网页视频</text>
+      <text class="footer__hint">粘贴链接后自动开始解析</text>
+    </view>
+
   </view>
 </view>

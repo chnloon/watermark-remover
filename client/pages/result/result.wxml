@@ -1,68 +1,96 @@
-<view class="page">
-  <!-- 加载状态 -->
-  <view wx:if="{{!resultData}}" class="loading-state">
-    <view class="loading-spinner">
-      <view class="loading-spinner__dot"></view>
-      <view class="loading-spinner__dot"></view>
-      <view class="loading-spinner__dot"></view>
-    </view>
-    <text class="loading-state__text">加载中...</text>
+<!-- ========================================
+     结果页 — 视频/图片展示 (Apple Music Style)
+     ======================================== -->
+
+<view class="page page--result">
+
+  <!-- 背景：随机浅色底色 + 柔光层（玻璃卡片透出它才有材质感） -->
+  <view class="bg-tint" style="background: {{bgTint}}"></view>
+  <view class="bg-glow" aria-hidden="true">
+    <view class="bg-glow__orb bg-glow__orb--blue"></view>
+    <view class="bg-glow__orb bg-glow__orb--violet"></view>
+    <view class="bg-glow__orb bg-glow__orb--cyan"></view>
+    <view class="bg-glow__orb bg-glow__orb--pink"></view>
+    <view class="bg-glow__orb bg-glow__orb--orange"></view>
   </view>
 
-  <!-- 结果展示 -->
+  <!-- ===== 骨架屏加载 ===== -->
+  <view wx:if="{{!resultData}}" class="skeleton-result">
+    <view class="skeleton skeleton-result__bar"></view>
+    <view class="skeleton skeleton-result__card"></view>
+    <view class="skeleton-result__btns">
+      <view class="skeleton skeleton-result__btn"></view>
+      <view class="skeleton skeleton-result__btn"></view>
+    </view>
+  </view>
+
+  <!-- ===== 结果内容 ===== -->
   <view wx:else class="result-container">
 
-    <!-- 顶部粘贴栏 -->
-    <view class="paste-bar">
-      <view class="paste-bar__input-wrap">
-        <text class="paste-bar__icon">🔗</text>
-        <input
-          class="paste-bar__input"
-          placeholder="粘贴抖音 / 快手 / 小红书分享链接"
-          placeholder-class="paste-bar__placeholder"
-          value="{{currentUrl}}"
-          bindinput="onUrlInput"
-          maxlength="-1"
+    <!-- 顶部：返回按钮 -->
+    <view class="result-header fade-in-up">
+      <view class="result-header__back" bindtap="onBack">
+        <text class="result-header__back-icon">‹</text>
+        <text class="result-header__back-text">返回</text>
+      </view>
+      <view class="result-header__spacer"></view>
+    </view>
+
+    <!-- ===== 视频预览卡片 (Apple Music 风格) ===== -->
+    <view wx:if="{{resultData.data.type === 'video'}}" class="media-card fade-in-up--d1">
+      <view class="media-card__video-wrap">
+        <video
+          wx:if="{{hasVideoUrl}}"
+          class="media-card__video"
+          src="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl}}"
+          controls
+          autoplay="{{false}}"
+          object-fit="contain"
+          background="#e9ebf1"
+          poster="{{resultData.data.videoCover || resultData.data.coverUrl || ''}}"
+          bindready="onVideoReady"
+          binderror="onVideoError"
         />
+        <!-- 无视频地址兜底：浅色占位，避免空 src 黑底 -->
+        <view wx:else class="media-card__video-placeholder">
+          <text class="video-status">视频地址缺失，请重新解析</text>
+        </view>
       </view>
-      <view class="paste-bar__actions">
-        <button class="paste-bar__btn paste-bar__btn--paste" bindtap="onPasteUrl">📋 粘贴</button>
-        <button class="paste-bar__btn paste-bar__btn--clear" wx:if="{{currentUrl.length > 0}}" bindtap="onClearUrl">🗑 清空</button>
+
+      <!-- 加载/错误状态 -->
+      <view wx:if="{{hasVideoUrl && videoStatus && !videoError}}" class="media-card__status-loading">
+        <view class="loading-spinner">
+          <view class="loading-spinner__dot"></view>
+          <view class="loading-spinner__dot"></view>
+          <view class="loading-spinner__dot"></view>
+        </view>
+      </view>
+
+      <!-- 错误状态 + 重试 -->
+      <view wx:if="{{hasVideoUrl && videoError}}" class="media-card__status-error shake">
+        <text class="media-card__error-text">⛔ 播放失败</text>
+        <text class="media-card__error-hint">请检查网络或切换播放源</text>
+        <button class="media-card__retry-btn" bindtap="onVideoRetry">重试</button>
       </view>
     </view>
 
-    <!-- 平台标识简约行 -->
-    <view class="meta-row">
-      <text class="meta-row__icon">{{platformIcon}}</text>
-      <text class="meta-row__name">{{platformName}}</text>
-    </view>
-
-    <!-- 视频预览卡片 -->
-    <view wx:if="{{resultData.data.type === 'video'}}" class="media-card">
-      <video
-        class="media-card__video"
-        src="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl}}"
-        controls
-        autoplay="{{false}}"
-        object-fit="contain"
-        bindready="onVideoReady"
-        binderror="onVideoError"
-      />
-      <text class="media-card__status">{{videoStatus}}</text>
-    </view>
-
-    <!-- 图片预览 -->
-    <view wx:if="{{resultData.data.type === 'image'}}" class="media-card media-card--image">
+    <!-- ===== 图片预览 (轮播) ===== -->
+    <view wx:if="{{resultData.data.type === 'image'}}" class="media-card media-card--image fade-in-up--d1">
       <swiper
         class="media-card__swiper"
         indicator-dots="{{resultData.data.images.length > 1}}"
-        indicator-color="rgba(0,0,0,0.08)"
-        indicator-active-color="#0071e3"
+        indicator-color="rgba(22,24,31,0.08)"
+        indicator-active-color="#2b6cff"
         circular="{{false}}"
         autoplay="{{false}}"
+        bindchange="onSwiperChange"
       >
-        <swiper-item wx:for="{{resultData.data.images}}" wx:key="*this">
-          <image class="media-card__image" src="{{item}}" mode="widthFix" />
+        <swiper-item wx:for="{{resultData.data.images}}" wx:key="*this" data-index="{{index}}">
+          <image
+            class="media-card__image"
+            src="{{resultData.data.proxyImages ? resultData.data.proxyImages[index] : item}}"
+            mode="widthFix"
+          />
         </swiper-item>
       </swiper>
       <text wx:if="{{resultData.data.images.length > 1}}" class="media-card__count">
@@ -70,35 +98,116 @@
       </text>
     </view>
 
-    <!-- 三个胶囊按钮 -->
-    <view class="capsule-bar">
-      <button class="capsule capsule--outline" bindtap="onCopyLink" data-link="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl || resultData.data.images[0]}}">
-        复制链接
-      </button>
-      <button class="capsule capsule--outline" wx:if="{{resultData.data.title}}" bindtap="onCopyDesc">
-        复制文案
-      </button>
-      <button
-        class="capsule capsule--dark"
-        wx:if="{{resultData.data.type === 'video'}}"
-        bindtap="onSaveVideo"
-        disabled="{{isSaving}}"
-      >
-        {{isSaving ? '保存中...' : '保存视频'}}
-      </button>
-      <button
-        class="capsule capsule--dark"
-        wx:if="{{resultData.data.type === 'image'}}"
-        bindtap="onSaveImages"
-        disabled="{{isSaving}}"
-      >
-        {{isSaving ? '保存中...' : '保存图片'}}
-      </button>
+    <!-- ===== 列表展示 (网页视频提取) ===== -->
+    <view wx:elif="{{resultData.data.type === 'list'}}" class="list-section fade-in-up--d1">
+      <view class="list-section__header">
+        <text class="list-section__title">{{resultData.data.title || '找到以下视频'}}</text>
+        <text class="list-section__count">{{resultData.data.items.length}} 个视频</text>
+      </view>
+
+      <scroll-view class="list-section__scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view
+          class="list-card"
+          wx:for="{{resultData.data.items}}"
+          wx:key="id"
+          wx:for-item="video"
+          wx:for-index="vidx"
+        >
+          <!-- 封面 -->
+          <image
+            class="list-card__cover"
+            src="{{video.coverUrl || resultData.data.coverUrl || ''}}"
+            mode="aspectFill"
+            lazy-load
+          />
+
+          <!-- 信息区 -->
+          <view class="list-card__body">
+            <text class="list-card__title">{{video.title || '视频'}}</text>
+            <view class="list-card__meta">
+              <text class="list-card__badge">{{video.format || '视频'}}</text>
+            </view>
+          </view>
+
+          <!-- 下载按钮 -->
+          <button
+            class="list-card__btn {{isSavingListItem && currentSaveIndex === vidx ? 'list-card__btn--saving' : ''}}"
+            data-index="{{vidx}}"
+            bindtap="onSaveListItem"
+            disabled="{{isSavingListItem && currentSaveIndex !== vidx}}"
+          >
+            {{isSavingListItem && currentSaveIndex === vidx ? '保存中...' : '保存'}}
+          </button>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- 继续解析 -->
-    <view class="back-bar">
-      <button class="back-btn" bindtap="onBack">继续解析</button>
+    <!-- ===== iOS 风格操作按钮组 ===== -->
+    <view class="action-group fade-in-up--d2">
+
+      <!-- 第一行：保存 -->
+      <view class="action-group__row">
+        <button
+          wx:if="{{resultData.data.type === 'video'}}"
+          class="action-btn action-btn--primary"
+          bindtap="onSaveVideo"
+          disabled="{{isSaving}}"
+        >
+          <text class="action-btn__label">{{isSaving ? '保存中...' : '保存到相册'}}</text>
+        </button>
+        <button
+          wx:if="{{resultData.data.type === 'image'}}"
+          class="action-btn action-btn--primary"
+          bindtap="onSaveImages"
+          disabled="{{isSaving}}"
+        >
+          <text class="action-btn__label">{{isSaving ? '保存中...' : '保存全部图片'}}</text>
+        </button>
+      </view>
+
+      <!-- 第二行：辅助操作 -->
+      <view class="action-group__row action-group__row--secondary">
+        <button class="action-btn action-btn--secondary" bindtap="onCopyLink" data-link="{{resultData.data.type === 'image' ? (resultData.data.proxyImages ? resultData.data.proxyImages[0] : resultData.data.images[0]) : (resultData.data.proxyVideoUrl || resultData.data.videoUrl)}}">
+          <text class="action-btn__label">复制链接</text>
+        </button>
+        <button wx:if="{{resultData.data.title}}" class="action-btn action-btn--secondary" bindtap="onCopyDesc">
+          <text class="action-btn__label">复制文案</text>
+        </button>
+        <button class="action-btn action-btn--secondary" bindtap="onGoHome">
+          <text class="action-btn__label">继续解析</text>
+        </button>
+      </view>
     </view>
+
+    <!-- 保存进度 -->
+    <view wx:if="{{imageSaveProgress}}" class="save-progress fade-in-up--d3">
+      <view class="save-progress__bar">
+        <view
+          class="save-progress__fill"
+          style="width: {{(imageSaveProgress.current / imageSaveProgress.total) * 100}}%"
+        ></view>
+      </view>
+      <text class="save-progress__text">
+        正在保存 {{imageSaveProgress.current}} / {{imageSaveProgress.total}}
+      </text>
+    </view>
+
+    <!-- 底部重新解析栏 -->
+    <view class="reparse-bar fade-in-up--d3">
+      <view class="reparse-bar__input-wrap">
+        <input
+          class="reparse-bar__input"
+          placeholder="粘贴新链接继续解析..."
+          placeholder-class="reparse-bar__placeholder"
+          value="{{currentUrl}}"
+          bindinput="onUrlInput"
+          maxlength="-1"
+          confirm-type="search"
+          bindconfirm="onReParse"
+        />
+        <button class="reparse-bar__btn" bindtap="onPasteUrl">粘贴</button>
+      </view>
+    </view>
+
   </view>
 </view>

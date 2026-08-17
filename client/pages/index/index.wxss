@@ -1,94 +1,262 @@
-/* 首页样式 — Google × Apple */
+/* ========================================
+   首页样式 — 轻量线（浅色 + 毛玻璃）
+   ======================================== */
 
-.page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.page--index {
   min-height: 100vh;
-  background: #f5f5f7;
-  padding: 40rpx;
+  background: #f3f4f7;
   box-sizing: border-box;
 }
 
-/* ---- 搜索栏 ---- */
-.search-section {
+/* ---- 背景柔光层（复刻 NEBULA 登录页，2026-07-31） ----
+   1640rpx 巨球 + 均匀内芯 + 柔边衰减（模拟 blur(40px) 氛围光）
+   左宝蓝 0.22 左上出屏 / 暖橙 0.20 右下出屏，压在玻璃卡片正下方
+   玻璃卡片 blur 后透出它 = 毛玻璃材质感的来源 */
+.bg-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bg-glow__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60rpx);
+}
+
+/* 五彩斑斓的白：白底上 5 颗淡彩柔光球（四角 + 右中），极淡 alpha 保持白的主导，
+   中央净白留白；filter: blur(60rpx) = 统一真实模糊特效（渐变仅作不支持 blur 时的降级） */
+.bg-glow__orb--blue {
+  width: 480rpx;
+  height: 480rpx;
+  left: -129rpx;
+  top: 111rpx;
+  background: radial-gradient(circle, rgba(43, 108, 255, 0.16) 0%, rgba(43, 108, 255, 0.16) 55%, rgba(43, 108, 255, 0) 100%);
+}
+
+.bg-glow__orb--violet {
+  width: 400rpx;
+  height: 400rpx;
+  right: -100rpx;
+  top: 80rpx;
+  background: radial-gradient(circle, rgba(124, 93, 250, 0.12) 0%, rgba(124, 93, 250, 0.12) 55%, rgba(124, 93, 250, 0) 100%);
+}
+
+.bg-glow__orb--cyan {
+  width: 400rpx;
+  height: 400rpx;
+  left: -110rpx;
+  bottom: 180rpx;
+  background: radial-gradient(circle, rgba(0, 194, 212, 0.11) 0%, rgba(0, 194, 212, 0.11) 55%, rgba(0, 194, 212, 0) 100%);
+}
+
+.bg-glow__orb--pink {
+  width: 380rpx;
+  height: 380rpx;
+  right: -140rpx;
+  top: 45%;
+  background: radial-gradient(circle, rgba(255, 122, 176, 0.10) 0%, rgba(255, 122, 176, 0.10) 55%, rgba(255, 122, 176, 0) 100%);
+}
+
+.bg-glow__orb--orange {
+  width: 480rpx;
+  height: 480rpx;
+  right: -94rpx;
+  bottom: -24rpx;
+  background: radial-gradient(circle, rgba(255, 138, 61, 0.13) 0%, rgba(255, 138, 61, 0.13) 55%, rgba(255, 138, 61, 0) 100%);
+}
+
+/* ---- 主区域 — 弹性布局撑满屏幕（压在柔光层之上） ---- */
+.main-area {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+}
+
+/* ---- Large Title 区域 ---- */
+.title-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -16rpx;
+  margin-bottom: 48rpx;
+}
+
+/* 用户素材：谷歌风格 LOGO（文字+彩色贴图+藤蔓，白底已转透明） */
+.logo-google {
+  width: 333rpx;
+  height: 99rpx;
+  margin-bottom: 2rpx;
+}
+
+.title-section__sub {
+  font-size: 28rpx;
+  color: #565b6a;
+  margin-top: 8rpx;
+  font-weight: 400;
+}
+
+/* ---- 胶囊输入框（glass-strong 0.78 + blur 16px + 白描边） ---- */
+.input-section {
   width: 100%;
   max-width: 620rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  margin-bottom: 48rpx;
 }
 
-.search-bar {
-  width: 100%;
+.capsule-input {
   display: flex;
   align-items: center;
-  background: #ffffff;
-  border: 2rpx solid #d2d2d7;
-  border-radius: 50rpx;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1rpx solid rgba(255, 255, 255, 0.65);
+  border-radius: 100rpx;
   padding: 6rpx 6rpx 6rpx 32rpx;
   box-sizing: border-box;
-  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow:
+    0 24rpx 60rpx -24rpx rgba(31, 38, 60, 0.25),
+    0 0 0 0 rgba(43, 108, 255, 0);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.search-bar--focused {
-  border-color: #0071e3;
-  box-shadow: 0 1rpx 8rpx rgba(0, 113, 227, 0.10);
+.capsule-input--has-value {
+  border-color: rgba(43, 108, 255, 0.45);
+  box-shadow:
+    0 24rpx 60rpx -24rpx rgba(31, 38, 60, 0.25),
+    0 0 0 4rpx rgba(43, 108, 255, 0.12);
 }
 
-.search-bar__icon {
-  font-size: 28rpx;
-  margin-right: 16rpx;
-  flex-shrink: 0;
-}
-
-.search-bar__input {
+.capsule-input__field {
   flex: 1;
   font-size: 28rpx;
-  color: #1d1d1f;
+  color: #16181f;
   background: transparent;
   border: none;
   outline: none;
-  height: 52rpx;
-  line-height: 52rpx;
+  height: 56rpx;
+  line-height: 56rpx;
   min-width: 0;
 }
 
-.search-bar__placeholder {
-  color: #86868b;
+.capsule-input__placeholder {
+  color: #878c9b;
   font-size: 28rpx;
 }
 
-/* 搜索栏内嵌按钮 — 黑底白字，切换「粘贴」/「解析」 */
-.search-bar__btn {
+/* 输入框按钮 — 电压色 #2b6cff */
+.capsule-input__btn {
   flex-shrink: 0;
-  height: 64rpx;
-  line-height: 64rpx;
-  padding: 0 32rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 36rpx;
   font-size: 28rpx;
+  font-weight: 500;
   color: #ffffff;
-  background: #1d1d1f;
+  background: #2b6cff;
   border-radius: 40rpx;
   border: none;
   margin-left: 12rpx;
-  font-weight: 500;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.2s;
 }
 
-.search-bar__btn:active {
+.capsule-input__btn:active {
+  opacity: 0.8;
+}
+
+.capsule-input__btn--loading {
+  background: #878c9b;
+  opacity: 0.8;
+}
+
+/* ---- 剪贴板检测提示（玻璃卡片） ---- */
+.clipboard-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  margin-top: 24rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(43, 108, 255, 0.08);
+  border: 1rpx solid rgba(43, 108, 255, 0.18);
+  border-radius: 16rpx;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.clipboard-hint__text {
+  font-size: 24rpx;
+  color: #2b6cff;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clipboard-hint__btn {
+  flex-shrink: 0;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 24rpx;
+  font-size: 24rpx;
+  color: #ffffff;
+  background: #2b6cff;
+  border-radius: 28rpx;
+  border: none;
+  font-weight: 500;
+}
+
+.clipboard-hint__btn:active {
   opacity: 0.85;
 }
 
-/* ---- 底部 ---- */
-.footer__title {
-  position: fixed;
-  bottom: 48rpx;
-  left: 0;
-  right: 0;
+.clipboard-hint__close {
+  flex-shrink: 0;
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
   text-align: center;
   font-size: 22rpx;
-  color: #c7c7cc;
-  letter-spacing: 2rpx;
+  color: #878c9b;
+  border-radius: 50%;
+}
+
+.clipboard-hint__close:active {
+  background: rgba(22, 24, 31, 0.05);
+}
+
+
+/* ---- 弹性撑开：将 footer 推到最底部 ---- */
+.spacer {
+  flex: 1;
+}
+
+/* ---- 底部 ---- */
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding-bottom: 20rpx;
+}
+
+.footer__text {
+  font-size: 24rpx;
+  color: #565b6a;
+  letter-spacing: 1rpx;
+}
+
+.footer__hint {
+  font-size: 20rpx;
+  color: #878c9b;
 }

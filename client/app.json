@@ -5,28 +5,24 @@
     "pages/history/history"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "#f3f4f7",
     "navigationBarTitleText": "去水印助手",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f5f5f7"
+    "backgroundColor": "#f3f4f7"
   },
   "tabBar": {
-    "color": "#c7c7cc",
-    "selectedColor": "#1d1d1f",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "color": "#878c9b",
+    "selectedColor": "#2b6cff",
+    "backgroundColor": "#f3f4f7",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "去水印",
-        "iconPath": "assets/icons/parse.png",
-        "selectedIconPath": "assets/icons/parse_active.png"
+        "text": "去水印"
       },
       {
         "pagePath": "pages/history/history",
-        "text": "历史",
-        "iconPath": "assets/icons/history.png",
-        "selectedIconPath": "assets/icons/history_active.png"
+        "text": "历史"
       }
     ]
   },

@@ -1,5 +1,6 @@
 /**
- * 结果页 - 展示解析结果
+ * 结果页 — Apple Music 风格展示
+ * 视频/图片预览、保存、复制、重新解析
  */
 
 const app = getApp();
@@ -7,12 +8,15 @@ const app = getApp();
 Page({
   data: {
     resultData: null,
-    platformName: '',
-    platformIcon: '',
     isSaving: false,
-    currentImageIndex: 0,
+	    isSavingListItem: false,
+	    currentSaveIndex: -1,
+	    imageSaveProgress: null,
+	    currentImageIndex: 0,
     videoStatus: '正在加载视频...',
+    videoError: false,
     currentUrl: '',
+    hasVideoUrl: false,
   },
 
   onLoad() {
@@ -26,19 +30,47 @@ Page({
     this.setData({
       resultData: result,
       currentUrl: app.globalData.lastInputUrl || '',
-    });
-
-    // 设置平台信息
-    const platformNames = app.globalData.platformNames;
-    const platformIcons = app.globalData.platformIcons;
-    const platform = result.platform;
-    this.setData({
-      platformName: platformNames[platform] || platform,
-      platformIcon: platformIcons[platform] || '🌐',
+      // 视频地址缺失时渲染浅色占位，避免空 src 的 video 黑底
+      hasVideoUrl: !!(result.data.proxyVideoUrl || result.data.videoUrl),
     });
 
     // 保存到历史记录
     this.saveToHistory(result);
+
+    // 预加载 — 解析成功后立即预取视频头（减少播放等待）
+    this.preloadVideo(result);
+  },
+
+  /**
+   * 页面显示 — 与主页共享同一背景底色
+   */
+  onShow() {
+    // 与主页共享同一背景底色（同步原生导航栏，避免白条色差）
+    app.applyBgTint(app.globalData.bgTint);
+    this.setData({ bgTint: app.globalData.bgTint });
+  },
+
+  /**
+   * 预加载视频头
+   */
+  preloadVideo(result) {
+    if (!result || !result.data || result.data.type !== 'video') return;
+    const videoUrl = result.data.proxyVideoUrl || result.data.videoUrl;
+    if (!videoUrl) return;
+
+    // 仅请求前 256KB 预缓存
+    wx.request({
+      url: app.globalData.apiBaseUrl.replace('/api', '') + '/proxy/video?url=' + encodeURIComponent(videoUrl),
+      header: { Range: 'bytes=0-262144' },
+      method: 'GET',
+      responseType: 'arraybuffer',
+      success: () => {
+        console.log('[预加载] 视频头预取成功');
+      },
+      fail: (err) => {
+        console.log('[预加载] 视频头预取失败（非关键）:', err.errMsg);
+      },
+    });
   },
 
   /**
@@ -49,15 +81,14 @@ Page({
   },
 
   /**
-   * 从剪贴板粘贴并重新解析
+   * 从剪贴板粘贴
    */
   async onPasteUrl() {
     try {
       const res = await wx.getClipboardData({});
       if (res.data) {
         this.setData({ currentUrl: res.data }, () => {
-          // 自动触发解析
-          this.reParse();
+          this.onReParse();
         });
       } else {
         app.showToast('剪贴板为空');
@@ -68,76 +99,61 @@ Page({
   },
 
   /**
-   * 清空输入
+   * 重新解析（输入框确认 或 粘贴后自动）
    */
-  onClearUrl() {
-    this.setData({ currentUrl: '' });
-  },
-
-  /**
-   * 用新链接重新解析
-   */
-  async reParse() {
+  onReParse() {
     const url = this.data.currentUrl.trim();
     if (!url) {
       app.showToast('请先粘贴链接');
       return;
     }
 
-    // 检测平台
-    const supportedDomains = ['douyin.com', 'iesdouyin.com', 'kuaishou.com', 'gifshow.com', 'xiaohongshu.com', 'xhslink.com'];
-    const hasSupport = supportedDomains.some(domain => url.includes(domain));
-    if (!hasSupport) {
-      app.showToast('暂不支持该平台的链接');
-      return;
-    }
-
     app.showToast('正在解析...', 'loading');
 
-    try {
-      const result = await app.request('/parse', 'POST', { url });
+    app.request('/parse', 'POST', { url })
+      .then((result) => {
+        if (!result.success) {
+          wx.hideToast();
+          app.showToast(result.error || '解析失败');
+          return;
+        }
 
-      if (!result.success) {
-        app.showToast(result.error || '解析失败');
-        return;
-      }
+        app.globalData.lastParseResult = result;
+        app.globalData.lastInputUrl = url;
 
-      app.globalData.lastParseResult = result;
-      app.globalData.lastInputUrl = url;
+        this.setData({
+          resultData: result,
+          currentUrl: url,
+          videoStatus: '正在加载视频...',
+          videoError: false,
+        });
 
-      // 在当前页面刷新
-      this.setData({
-        resultData: result,
-        currentUrl: url,
+        this.saveToHistory(result);
+        this.preloadVideo(result);
+        wx.hideToast();
+      })
+      .catch((err) => {
+        wx.hideToast();
+        app.showToast(err.message || '网络错误');
       });
+  },
 
-      // 更新平台信息
-      const platformNames = app.globalData.platformNames;
-      const platformIcons = app.globalData.platformIcons;
-      const platform = result.platform;
-      this.setData({
-        platformName: platformNames[platform] || platform,
-        platformIcon: platformIcons[platform] || '🌐',
-        videoStatus: '正在加载视频...',
-      });
-
-      // 保存历史
-      this.saveToHistory(result);
-      wx.hideToast();
-    } catch (err) {
-      app.showToast(err.message || '网络错误');
-    }
+  /**
+   * 图片轮播切换
+   */
+  onSwiperChange(e) {
+    this.setData({ currentImageIndex: e.detail.current });
   },
 
   /**
    * 视频加载就绪
    */
   onVideoReady() {
-    this.setData({ videoStatus: '' });
+    this.setData({ videoStatus: '', videoError: false });
   },
 
   /**
-   * 视频播放错误时，尝试用原地址播放
+   * 视频播放错误时，尝试切换源
    */
   onVideoError(e) {
     console.error('视频播放失败:', e.detail);
@@ -146,11 +162,36 @@ Page({
       const proxyUrl = resultData.data.proxyVideoUrl;
       const directUrl = resultData.data.videoUrl;
       if (proxyUrl && directUrl) {
+        // 尝试切换到直接地址
         resultData.data.proxyVideoUrl = '';
-        this.setData({ resultData: resultData });
+        this.setData({ resultData: resultData, videoStatus: '切换源中...' });
         app.showToast('正在切换播放源...');
+        setTimeout(() => {
+          if (this.data.videoStatus !== '') {
+            this.setData({ videoError: true, videoStatus: '' });
+          }
+        }, 5000);
+      } else {
+        this.setData({ videoError: true, videoStatus: '' });
       }
     }
+  },
+
+  /**
+   * 视频重试
+   */
+  onVideoRetry() {
+    const resultData = this.data.resultData;
+    if (!resultData || !resultData.data) return;
+    const original = app.globalData.lastParseResult;
+    if (original && original.data && original.data.proxyVideoUrl) {
+      resultData.data.proxyVideoUrl = original.data.proxyVideoUrl;
+    }
+    this.setData({
+      resultData: resultData,
+      videoStatus: '正在重新加载...',
+      videoError: false,
+    });
   },
 
   /**
@@ -207,7 +248,6 @@ Page({
 
     this.setData({ isSaving: true });
 
-    // 通过后端下载接口中转，避免小程序域名白名单限制
     const downloadUrl = app.globalData.apiBaseUrl.replace('/api', '') + '/api/download?url=' + encodeURIComponent(videoUrl);
 
     try {
@@ -217,7 +257,7 @@ Page({
       });
 
       if (downloadRes.statusCode !== 200) {
-        throw new Error('下载失败 (状态码: ' + downloadRes.statusCode + ')');
+        throw new Error('下载失败，状态码：' + downloadRes.statusCode);
       }
 
       await wx.saveVideoToPhotosAlbum({
@@ -229,12 +269,20 @@ Page({
       console.error('保存视频失败:', err);
       if (err.errMsg && err.errMsg.includes('auth')) {
         try {
-          await wx.authorize({
-            scope: 'scope.writePhotosAlbum',
-          });
+          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
           return this.onSaveVideo();
         } catch (authErr) {
-          app.showToast('请开启相册权限');
+          // 引导用户手动开启
+          wx.showModal({
+            title: '需要相册权限',
+            content: '请在设置中开启「保存到相册」权限',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting();
+              }
+            },
+          });
           return;
         }
       }
@@ -245,47 +293,139 @@ Page({
   },
 
   /**
+   * 保存列表中的单个视频到相册
+   */
+  async onSaveListItem(e) {
+    const index = e.currentTarget.dataset.index;
+    const items = this.data.resultData.data.items;
+    if (!items || index < 0 || index >= items.length) {
+      app.showToast('视频地址无效');
+      return;
+    }
+
+    const item = items[index];
+    const videoUrl = item.proxyUrl || item.url;
+    if (!videoUrl) {
+      app.showToast('视频地址无效');
+      return;
+    }
+
+    this.setData({ isSavingListItem: true, currentSaveIndex: index });
+
+    const downloadUrl = app.globalData.apiBaseUrl.replace('/api', '') + '/api/download?url=' + encodeURIComponent(videoUrl);
+
+    try {
+      const downloadRes = await wx.downloadFile({
+        url: downloadUrl,
+        timeout: 120000,
+      });
+
+      if (downloadRes.statusCode !== 200) {
+        throw new Error('下载失败，状态码：' + downloadRes.statusCode);
+      }
+
+      await wx.saveVideoToPhotosAlbum({
+        filePath: downloadRes.tempFilePath,
+      });
+
+      app.showToast('✅ 已保存到相册', 'success');
+    } catch (err) {
+      console.error('保存视频失败:', err);
+      if (err.errMsg && err.errMsg.includes('auth')) {
+        try {
+          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
+          return this.onSaveListItem(e);
+        } catch (authErr) {
+          wx.showModal({
+            title: '需要相册权限',
+            content: '请在设置中开启「保存到相册」权限',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting();
+              }
+            },
+          });
+          return;
+        }
+      }
+      app.showToast('保存失败: ' + (err.errMsg || err.message));
+    } finally {
+      this.setData({ isSavingListItem: false, currentSaveIndex: -1 });
+    }
+  },
+
+  /**
    * 保存图片到相册
    */
   async onSaveImages() {
     const images = this.data.resultData.data.images;
+    const proxyImages = this.data.resultData.data.proxyImages;
     if (!images || images.length === 0) {
       app.showToast('图片地址无效');
       return;
     }
 
-    this.setData({ isSaving: true });
+    const downloadTargets = (proxyImages && proxyImages.length === images.length) ? proxyImages : images;
+
+    this.setData({
+      isSaving: true,
+      imageSaveProgress: { current: 0, total: images.length },
+    });
 
     try {
-      for (let i = 0; i < images.length; i++) {
+      for (let i = 0; i < downloadTargets.length; i++) {
         const downloadRes = await wx.downloadFile({
-          url: images[i],
-          timeout: 30000,
+          url: downloadTargets[i],
+          timeout: 60000,
         });
 
         if (downloadRes.statusCode !== 200) {
-          console.error(`图片 ${i + 1} 下载失败`);
-          continue;
+          console.error(`图片 ${i + 1} 下载失败 (状态码: ${downloadRes.statusCode})`);
+          if (downloadTargets[i] !== images[i]) {
+            app.showToast(`第 ${i + 1} 张重试...`);
+            const retryRes = await wx.downloadFile({
+              url: images[i],
+              timeout: 60000,
+            });
+            if (retryRes.statusCode !== 200) continue;
+            await wx.saveImageToPhotosAlbum({ filePath: retryRes.tempFilePath });
+          } else {
+            continue;
+          }
+        } else {
+          await wx.saveImageToPhotosAlbum({
+            filePath: downloadRes.tempFilePath,
+          });
         }
 
-        await wx.saveImageToPhotosAlbum({
-          filePath: downloadRes.tempFilePath,
-        });
-
-        app.showToast(`已保存 ${i + 1}/${images.length}`, 'success');
+        this.setData({ 'imageSaveProgress.current': i + 1 });
       }
+
+      app.showToast(`✅ 已保存 ${this.data.imageSaveProgress.current}/${images.length}`, 'success');
     } catch (err) {
+      console.error('保存图片失败:', err);
       if (err.errMsg && err.errMsg.includes('auth')) {
-        const authRes = await wx.authorize({
-          scope: 'scope.writePhotosAlbum',
-        });
-        if (authRes) {
+        try {
+          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
           return this.onSaveImages();
+        } catch (authErr) {
+          wx.showModal({
+            title: '需要相册权限',
+            content: '请在设置中开启「保存到相册」权限',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting();
+              }
+            },
+          });
+          return;
         }
       }
       app.showToast('保存失败: ' + (err.errMsg || err.message));
     } finally {
-      this.setData({ isSaving: false });
+      this.setData({ isSaving: false, imageSaveProgress: null });
     }
   },
 
@@ -295,14 +435,31 @@ Page({
   saveToHistory(result) {
     try {
       const history = wx.getStorageSync('parse_history') || [];
-      const record = {
-        id: Date.now().toString(36),
-        platform: result.platform,
-        title: result.data.title || '(无标题)',
-        coverUrl: result.data.coverUrl || '',
-        type: result.data.type || 'video',
-        timestamp: Date.now(),
-      };
+
+      let record;
+      if (result.data.type === 'list') {
+        const items = result.data.items || [];
+        record = {
+          id: Date.now().toString(36),
+          platform: result.platform,
+          title: result.data.title || `找到 ${items.length} 个视频`,
+          coverUrl: result.data.coverUrl || (items[0] ? items[0].coverUrl : '') || '',
+          url: result.url || app.globalData.lastInputUrl || '',
+          type: 'list',
+          count: items.length,
+          timestamp: Date.now(),
+        };
+      } else {
+        record = {
+          id: Date.now().toString(36),
+          platform: result.platform,
+          title: result.data.title || '(无标题)',
+          coverUrl: result.data.coverUrl || '',
+          url: result.url || app.globalData.lastInputUrl || '',
+          type: result.data.type || 'video',
+          timestamp: Date.now(),
+        };
+      }
 
       const updated = [record, ...history].slice(0, 50);
       wx.setStorageSync('parse_history', updated);
@@ -316,5 +473,14 @@ Page({
    */
   onBack() {
     wx.navigateBack();
+  },
+
+  /**
+   * 直接回首页 tab
+   */
+  onGoHome() {
+    wx.switchTab({
+      url: '/pages/index/index',
+    });
   },
 });

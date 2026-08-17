@@ -1,45 +1,105 @@
-<view class="container">
-  <!-- 头部 -->
-  <view class="header">
-    <text class="header__title">📋 解析记录</text>
-    <button class="header__clear" wx:if="{{historyList.length > 0}}" bindtap="onClearAll">
-      清空全部
-    </button>
+<view class="page page--history container">
+
+  <!-- 背景：随机浅色底色 + 柔光层（与首页一致的毛玻璃材质来源） -->
+  <view class="bg-tint" style="background: {{bgTint}}"></view>
+  <view class="bg-glow" aria-hidden="true">
+    <view class="bg-glow__orb bg-glow__orb--blue"></view>
+    <view class="bg-glow__orb bg-glow__orb--violet"></view>
+    <view class="bg-glow__orb bg-glow__orb--cyan"></view>
+    <view class="bg-glow__orb bg-glow__orb--pink"></view>
+    <view class="bg-glow__orb bg-glow__orb--orange"></view>
   </view>
 
-  <!-- 空状态 -->
-  <view wx:if="{{historyList.length === 0}}" class="empty-state">
-    <text class="empty-state__icon">📭</text>
-    <text class="empty-state__text">暂无解析记录</text>
-    <text class="empty-state__hint">解析成功后会自动保存到这里</text>
-    <button class="btn-go-parse" bindtap="onGoParse">去解析 →</button>
-  </view>
-
-  <!-- 历史列表 -->
-  <view wx:else class="history-list">
-    <view
-      class="history-item"
-      wx:for="{{historyList}}"
-      wx:key="id"
-      bindtap="onReParse"
-      data-url="{{item.url}}"
-    >
-      <image
-        class="history-item__cover"
-        src="{{item.coverUrl || '/assets/icons/default_cover.png'}}"
-        mode="aspectFill"
-        lazy-load
-      />
-      <view class="history-item__info">
-        <text class="history-item__title">{{item.title}}</text>
-        <view class="history-item__meta">
-          <text class="platform-tag {{'platform-tag--' + item.platform}}">
-            {{platformNames[item.platform] || item.platform}}
-          </text>
-          <text class="history-item__type">{{item.type === 'video' ? '🎬 视频' : '🖼️ 图片'}}</text>
-          <text class="history-item__time">{{formatTime(item.timestamp)}}</text>
-        </view>
-      </view>
+  <!-- 骨架加载态 -->
+  <view wx:if="{{showSkeleton}}" class="skeleton-wrap">
+    <view class="skeleton-header">
+      <view class="skeleton skeleton--title w-40"></view>
+      <view class="skeleton skeleton--capsule w-20"></view>
+    </view>
+    <view class="skeleton-section">
+      <view class="skeleton skeleton--subtitle w-16"></view>
+      <view class="skeleton skeleton--card" wx:for="{{2}}" wx:key="*this"></view>
+    </view>
+    <view class="skeleton-section">
+      <view class="skeleton skeleton--subtitle w-20"></view>
+      <view class="skeleton skeleton--card" wx:for="{{3}}" wx:key="*this"></view>
     </view>
   </view>
+
+  <!-- 主要内容 -->
+  <block wx:else>
+    <!-- 头部 -->
+    <view class="page-header fade-in-up">
+      <text class="page-header__title">历史记录</text>
+      <button class="page-header__clear {{historySections.length > 0 ? '' : 'hidden'}}" bindtap="onClearAll">
+        清空全部
+      </button>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{historySections.length === 0}}" class="empty-state fade-in-up--d2">
+      <view class="empty-state__circle">
+        <text class="empty-state__icon">📭</text>
+      </view>
+      <text class="empty-state__text">暂无解析记录</text>
+      <text class="empty-state__hint">解析成功后会自动保存到这里</text>
+      <button class="btn-primary btn-go-parse" bindtap="onGoParse">去解析 →</button>
+    </view>
+
+    <!-- 历史分组列表 -->
+    <scroll-view wx:else class="history-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="history-groups">
+        <view
+          class="history-group fade-in-up {{'fade-in-up--d' + (index + 1)}}"
+          wx:for="{{historySections}}"
+          wx:key="label"
+          wx:for-index="index"
+        >
+          <!-- 分组标题 -->
+          <view class="section-header">
+            <text class="section-header__label">{{item.label}}</text>
+            <text class="section-header__count">{{item.items.length}} 条</text>
+          </view>
+
+          <!-- 分组卡片列表 -->
+          <view
+            class="history-item"
+            wx:for="{{item.items}}"
+            wx:key="id"
+            wx:for-item="record"
+            data-url="{{record.url}}"
+            bindtap="onReParse"
+          >
+            <!-- 封面 -->
+            <image
+              class="history-item__cover"
+              src="{{record.coverUrl || ''}}"
+              mode="aspectFill"
+              lazy-load
+            />
+
+            <!-- 信息 -->
+            <view class="history-item__body">
+              <text class="history-item__title">{{record.title}}</text>
+              <view class="history-item__meta">
+                <text class="platform-tag {{'platform-tag--' + record.platform}}">
+                  {{platformNames[record.platform] || record.platform}}
+                </text>
+                <text class="history-item__type-badge {{record.type === 'video' ? 'badge--video' : 'badge--image'}}">
+                  {{record.type === 'video' ? '🎬 视频' : record.type === 'list' ? '🎬 列表' : '🖼️ 图片'}}
+                </text>
+                <text class="history-item__time">{{formatTime(record.timestamp)}}</text>
+              </view>
+            </view>
+
+            <!-- 箭头指示 -->
+            <text class="history-item__arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部留白 -->
+      <view class="scroll-spacer"></view>
+    </scroll-view>
+  </block>
 </view>
