@@ -3,9 +3,41 @@
  */
 
 /**
- * 检测链接属于哪个平台
+ * 判断是否为 M3U8 URL
  * @param {string} url
- * @returns {string|null} 平台标识: douyin / kuaishou / xiaohongshu / null
+ * @returns {boolean}
+ */
+function isM3u8Url(url) {
+  if (!url) return false;
+  return url.toLowerCase().includes('.m3u8');
+}
+
+/**
+ * 判断是否为直接视频文件 URL（.mp4, .ts 等，不含 .m3u8）
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isDirectVideoUrl(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return (
+    (lower.includes('.mp4') ||
+     lower.includes('.ts') ||
+     lower.includes('.webm') ||
+     lower.includes('.mkv') ||
+     lower.includes('.mov') ||
+     lower.includes('.flv')) &&
+    !lower.includes('.m3u8')
+  );
+}
+
+/**
+ * 检测链接属于哪个平台
+ *
+ * 优先级：已知平台 > M3U8 > 直接视频 > 通用网页
+ *
+ * @param {string} url
+ * @returns {string|null} 平台标识: douyin / kuaishou / xiaohongshu / m3u8 / generic / null
  */
 function detectPlatform(url) {
   if (!url) return null;
@@ -19,8 +51,23 @@ function detectPlatform(url) {
     return 'kuaishou';
   }
 
-  if (u.includes('xiaohongshu.com') || u.includes('xhslink.com')) {
+  if (u.includes('xiaohongshu.com') || /xhslink\.(com|cn)/.test(u)) {
     return 'xiaohongshu';
+  }
+
+  // M3U8 流地址
+  if (isM3u8Url(u)) {
+    return 'm3u8';
+  }
+
+  // 直接视频文件链接
+  if (isDirectVideoUrl(u)) {
+    return 'generic';
+  }
+
+  // 其他任何 HTTP 链接，尝试通用网页提取
+  if (u.startsWith('http://') || u.startsWith('https://')) {
+    return 'generic';
   }
 
   return null;
@@ -78,4 +125,6 @@ module.exports = {
   extractDouyinVideoId,
   extractKuaishouVideoId,
   extractXiaohongshuNoteId,
+  isM3u8Url,
+  isDirectVideoUrl,
 };

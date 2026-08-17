@@ -13,3 +13,11 @@ nul
 *.swo
 *.mp4
 parse_response.json
+
+# 本地调试产物（不入库）
+ngrok.exe
+screenshot.ps1
+take-screenshot.ps1
+screenshot.png
+preview-qr.png
+*.frames/

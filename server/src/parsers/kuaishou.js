@@ -1,9 +1,17 @@
 /**
  * 快手解析器
+ *
+ * 解析策略（按优先级降序）:
+ *   1. 直接调用快手 GraphQL API
+ *   2. Cheerio 提取 HTML 页面内嵌数据（og:video / JSON-LD / __INITIAL_STATE__）
+ *   3. lux Go CLI 解析（内置反爬处理）
+ *   4. 第三方解析 API 降级
  */
 
 const axios = require('axios');
+const cheerio = require('cheerio');
 const { parseViaThirdParty } = require('../services/thirdPartyApi');
+const { parseViaLux } = require('../services/luxParser');
 
 /**
  * 解析快手分享链接
@@ -14,27 +22,56 @@ async function parse(shareUrl) {
   try {
     // 第一步：解析分享链接，获取视频ID
     const videoId = await resolveVideoId(shareUrl);
-    if (!videoId) {
-      return {
-        success: false,
-        platform: 'kuaishou',
-        error: '无法识别的快手链接格式',
-      };
+    // 注意: videoId 可能为 null（如未知 URL 格式），
+    // 但仍可尝试 fetchViaPage 和 lux——不提前退出
+
+    // 第二步：调用快手 API 获取视频信息（需要 videoId）
+    if (videoId) {
+      const result = await fetchVideoInfo(videoId);
+      if (result.success) return result;
     }
 
-    // 第二步：调用快手 API 获取视频信息
-    const result = await fetchVideoInfo(videoId);
-    if (result.success) return result;
+    // 第二步半：尝试 HTML 页面解析（cheerio，无 videoId 也能跑）
+    const pageResult = await fetchViaPage(shareUrl, videoId);
+    if (pageResult.success) return pageResult;
 
-    // 直接解析失败，尝试第三方 API 降级
+    // 第三步：lux Go CLI 解析（内置快手反爬处理）
+    const luxResult = await parseViaLux(shareUrl);
+    if (luxResult.success) return luxResult;
+    console.error('[快手] lux 解析失败:', luxResult.error);
+
+    // 第四步：直接解析失败，尝试第三方 API 降级
     try {
       const thirdPartyResult = await parseViaThirdParty(shareUrl, 'kuaishou');
       if (thirdPartyResult.success) return thirdPartyResult;
     } catch (apiErr) {
       console.error('[快手] 第三方 API 也失败:', apiErr.message);
+
+      if (apiErr.message && apiErr.message.includes('未配置')) {
+        // 第三方 API 未配置时，返回 lux 的实际错误（如果有的话）
+        if (luxResult.error && !luxResult.error.includes('未安装')) {
+          return {
+            success: false,
+            platform: 'kuaishou',
+            error: `解析失败: ${luxResult.error}`,
+          };
+        }
+        return {
+          success: false,
+          platform: 'kuaishou',
+          error: '快手解析暂时不可用，请稍后重试',
+        };
+      }
     }
 
-    return result;
+    // 所有解析方式均失败
+    return {
+      success: false,
+      platform: 'kuaishou',
+      error: luxResult.error && !luxResult.error.includes('未安装')
+        ? `解析失败: ${luxResult.error}`
+        : '快手解析暂时不可用，请稍后重试',
+    };
   } catch (err) {
     return {
       success: false,
@@ -195,6 +232,218 @@ async function fetchVideoInfo(videoId) {
       platform: 'kuaishou',
       error: `解析失败: ${err.message}`,
     };
+  }
+}
+
+/**
+ * 通过 HTML 页面解析（cheerio）
+ *
+ * 当 GraphQL API 失效时，尝试从快手分享落地页中直接提取视频信息。
+ * 支持 4 种提取方式:
+ *   1. og:video / og:video:url 元标签
+ *   2. JSON-LD（schema.org/VideoObject）
+ *   3. window.__INITIAL_STATE__ SSR 状态
+ *   4. <video> 标签（兜底）
+ */
+async function fetchViaPage(url, videoId) {
+  try {
+    // 构造快手分享页的完整 URL
+    // 没有 videoId 时直接用原始 URL 碰运气
+    const pageUrl = url.includes('v.kuaishou.com')
+      ? url
+      : videoId
+        ? `https://www.kuaishou.com/short-video/${videoId}`
+        : url;
+
+    const response = await axios.get(pageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Referer': 'https://www.kuaishou.com/',
+      },
+      timeout: 15000,
+    });
+
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    // ----- 策略 1: window.INIT_STATE（落地页 SSR，含 mainMvUrls 视频直链） -----
+    // 快手分享落地页（v.m.chenzhongtech.com/fw/photo/...）在 window.INIT_STATE 中
+    // 内嵌完整作品数据：mainMvUrls（mp4 直链）/ caption / userName / headUrl / duration
+    {
+      const initStateResult = extractFromInitState(html, videoId);
+      if (initStateResult.success) return initStateResult;
+    }
+
+    // ----- 策略 2: og:video 元标签 -----
+    {
+      const ogVideo = $('meta[property="og:video"]').attr('content') || '';
+      const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
+      const ogVideoSecure = $('meta[property="og:video:secure_url"]').attr('content') || '';
+      const videoUrl = ogVideo || ogVideoUrl || ogVideoSecure;
+
+      if (videoUrl) {
+        return {
+          success: true,
+          platform: 'kuaishou',
+          data: {
+            title: $('meta[property="og:title"]').attr('content') || $('title').text() || '',
+            coverUrl: $('meta[property="og:image"]').attr('content') || '',
+            videoUrl,
+            videoId: videoId || '',
+            author: { name: '', avatar: '' },
+            source: 'kuaishou',
+            type: 'video',
+            duration: 0,
+          },
+        };
+      }
+    }
+
+    // ----- 策略 3: JSON-LD -----
+    {
+      let ldVideo = null;
+      $('script[type="application/ld+json"]').each((i, el) => {
+        try {
+          const parsed = JSON.parse($(el).html());
+          if (parsed && (parsed['@type'] === 'VideoObject' || parsed.video)) {
+            ldVideo = parsed;
+          }
+        } catch { /* ignore */ }
+      });
+
+      if (ldVideo) {
+        const videoUrl = ldVideo.contentUrl || ldVideo.embedUrl || ldVideo.url || '';
+        if (videoUrl) {
+          return {
+            success: true,
+            platform: 'kuaishou',
+            data: {
+              title: ldVideo.name || ldVideo.description || '',
+              coverUrl: ldVideo.thumbnailUrl || '',
+              videoUrl,
+              videoId: videoId || '',
+              author: { name: '', avatar: '' },
+              source: 'kuaishou',
+              type: 'video',
+              duration: ldVideo.duration ? parseInt(ldVideo.duration) || 0 : 0,
+            },
+          };
+        }
+      }
+    }
+
+    // ----- 策略 4: window.__INITIAL_STATE__ -----
+    {
+      const match = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});\s*<\/script>/);
+      if (match && match[1]) {
+        try {
+          const state = JSON.parse(match[1]);
+          if (state && typeof state === 'object') {
+            // 快手 __INITIAL_STATE__ 常见路径
+            const photo = state.photo || (state.videoDetail && state.videoDetail.photo);
+            if (photo && photo.photoUrl) {
+              return {
+                success: true,
+                platform: 'kuaishou',
+                data: {
+                  title: photo.caption || '',
+                  coverUrl: photo.coverUrl || '',
+                  videoUrl: photo.photoUrl,
+                  videoId: photo.id || videoId,
+                  author: {
+                    name: (photo.author && photo.author.name) || '',
+                    avatar: (photo.author && photo.author.avatar) || '',
+                  },
+                  source: 'kuaishou',
+                  type: 'video',
+                  duration: photo.duration || 0,
+                },
+              };
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // ----- 策略 5: <video> 标签（兜底） -----
+    {
+      const videoSrc = $('video source').attr('src') || $('video').attr('src') || '';
+      if (videoSrc && !videoSrc.includes('blob:')) {
+        return {
+          success: true,
+          platform: 'kuaishou',
+          data: {
+            title: $('title').text() || '',
+            coverUrl: $('meta[property="og:image"]').attr('content') || '',
+            videoUrl: videoSrc,
+            videoId: videoId || '',
+            author: { name: '', avatar: '' },
+            source: 'kuaishou',
+            type: 'video',
+            duration: 0,
+          },
+        };
+      }
+    }
+
+    return { success: false };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * 从 window.INIT_STATE（落地页 SSR 状态）中提取作品信息
+ *
+ * 快手分享落地页（v.m.chenzhongtech.com/fw/photo/...）在
+ * window.INIT_STATE 中内嵌完整作品数据，含 mainMvUrls（mp4 直链）、
+ * caption、userName、headUrl、duration、coverUrls 等字段。
+ * 视频直链托管在 hwmov.a.yximgs.com，HEAD 返回 video/mp4 且无需 Referer，
+ * 微信小程序 wx.downloadFile 可直接下载。
+ */
+function extractFromInitState(html, videoId) {
+  try {
+    const match = html.match(/window\.INIT_STATE\s*=\s*({[\s\S]*?})\s*;?\s*<\/script>/);
+    if (!match || !match[1]) return { success: false };
+    const state = JSON.parse(match[1]);
+    if (!state || typeof state !== 'object') return { success: false };
+
+    // 递归查找含 mainMvUrls 数组的 photo 对象（深度 ≤8）
+    let photo = null;
+    (function find(o, depth) {
+      if (photo || !o || typeof o !== 'object' || depth > 8) return;
+      if (Array.isArray(o.mainMvUrls) && o.mainMvUrls.length > 0) { photo = o; return; }
+      for (const key of Object.keys(o)) find(o[key], depth + 1);
+    })(state, 0);
+
+    if (!photo) return { success: false };
+    const videoUrl = (photo.mainMvUrls[0] && photo.mainMvUrls[0].url) || '';
+    if (!videoUrl) return { success: false };
+
+    // coverUrls 可能是 {cdn,url} 对象数组，也可能直接是字符串数组
+    const coverArr = photo.coverUrls || photo.webpCoverUrls || [];
+    const coverUrl = typeof coverArr[0] === 'string'
+      ? coverArr[0]
+      : (coverArr[0] && coverArr[0].url) || '';
+
+    return {
+      success: true,
+      platform: 'kuaishou',
+      data: {
+        title: photo.caption || '',
+        coverUrl,
+        videoUrl,
+        videoId: photo.photoId || videoId || '',
+        author: { name: photo.userName || '', avatar: photo.headUrl || '' },
+        source: 'kuaishou',
+        type: 'video',
+        duration: photo.duration ? Math.round(photo.duration / 1000) : 0,
+      },
+    };
+  } catch {
+    return { success: false };
   }
 }
 

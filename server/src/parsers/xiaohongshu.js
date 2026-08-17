@@ -8,6 +8,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { parseViaThirdParty } = require('../services/thirdPartyApi');
+const { parseViaLux } = require('../services/luxParser');
 
 /**
  * 解析小红书分享链接
@@ -30,15 +31,43 @@ async function parse(shareUrl) {
     const result = await scrapeNoteContent(fullUrl);
     if (result.success) return result;
 
-    // 直接解析失败，尝试第三方 API 降级
+    // 第三步：lux Go CLI 解析（在 Docker/CloudRun 环境中可用）
+    const luxResult = await parseViaLux(fullUrl);
+    if (luxResult.success) return luxResult;
+    console.error('[小红书] lux 解析失败:', luxResult.error);
+
+    // 第四步：第三方 API 降级
     try {
       const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
       if (thirdPartyResult.success) return thirdPartyResult;
     } catch (apiErr) {
       console.error('[小红书] 第三方 API 也失败:', apiErr.message);
+
+      if (apiErr.message && apiErr.message.includes('未配置')) {
+        // 第三方 API 未配置时，返回 lux 的实际错误（如果有的话）
+        if (luxResult.error && !luxResult.error.includes('未安装')) {
+          return {
+            success: false,
+            platform: 'xiaohongshu',
+            error: `解析失败: ${luxResult.error}`,
+          };
+        }
+        return {
+          success: false,
+          platform: 'xiaohongshu',
+          error: '小红书解析暂时不可用，请稍后重试',
+        };
+      }
     }
 
-    return result;
+    // 所有方式均失败
+    return {
+      success: false,
+      platform: 'xiaohongshu',
+      error: luxResult.error && !luxResult.error.includes('未安装')
+        ? `解析失败: ${luxResult.error}`
+        : '小红书解析暂时不可用，请稍后重试',
+    };
   } catch (err) {
     return {
       success: false,
@@ -53,7 +82,8 @@ async function parse(shareUrl) {
  */
 async function resolveShortUrl(url) {
   try {
-    if (!url.includes('xhslink.com')) {
+    // 小红书短链域名历史上用过 xhslink.com，现在是 xhslink.cn
+    if (!/xhslink\.(com|cn)/i.test(url)) {
       return url;
     }
 
@@ -74,6 +104,15 @@ async function resolveShortUrl(url) {
 
 /**
  * 从小红书页面中提取笔记内容
+ *
+ * ⚠️ 小红书有较强的反爬机制，常见表现：
+ *   - 返回空白页面或验证码页面（需 Cookie）
+ *   - 请求频率过高（401/429）
+ *   - window.__INITIAL_STATE__ 为空（客户端渲染）
+ *
+ * 优化措施：
+ *   - 提取 Cookie 并在重试时复用
+ *   - 检测反爬/频率限制并给出友好提示
  */
 async function scrapeNoteContent(url) {
   try {
@@ -88,6 +127,21 @@ async function scrapeNoteContent(url) {
     });
 
     const html = response.data;
+
+    // 检测反爬/频率限制
+    const rateLimitCheck = detectRateLimit(html, response.status);
+    if (rateLimitCheck) {
+      return {
+        success: false,
+        platform: 'xiaohongshu',
+        error: rateLimitCheck,
+      };
+    }
+
+    // 提取响应中的 Cookie 以备可能的 retry
+    const setCookies = response.headers['set-cookie'];
+    const cookieStr = setCookies ? extractCookies(setCookies) : null;
+
     const $ = cheerio.load(html);
 
     // 从页面中提取笔记标题
@@ -120,36 +174,68 @@ async function scrapeNoteContent(url) {
     const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
 
     // 从页面中提取 window.__INITIAL_STATE__ 数据
+    // 注意：不能用正则 `{[\s\S]*?};` 匹配 —— SSR JSON 内嵌字符串（如 launchAppConfig）会截断
+    // 用括号配平 + 字符串状态跟踪，并清洗 SSR 内嵌的 undefined
     let initialState = null;
     $('script').each((i, el) => {
       const text = $(el).html() || '';
-      if (text.includes('window.__INITIAL_STATE__')) {
-        const match = text.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});/);
-        if (match) {
-          try {
-            initialState = JSON.parse(match[1]);
-          } catch (e) { /* ignore */ }
+      const marker = 'window.__INITIAL_STATE__=';
+      const markerIdx = text.indexOf(marker);
+      if (markerIdx < 0) return;
+      try {
+        const seg = text.slice(markerIdx + marker.length);
+        let depth = 0, end = -1, inStr = false, esc = false;
+        for (let j = 0; j < seg.length; j++) {
+          const c = seg[j];
+          if (inStr) {
+            if (esc) esc = false;
+            else if (c === '\\') esc = true;
+            else if (c === '"') inStr = false;
+            continue;
+          }
+          if (c === '"') { inStr = true; continue; }
+          if (c === '{') depth++;
+          else if (c === '}') { depth--; if (depth === 0) { end = j; break; } }
         }
-      }
+        if (end > 0) {
+          const json = seg.slice(0, end + 1)
+            .replace(/:\s*undefined\b/g, ':null')
+            .replace(/,\s*undefined\b/g, ',null');
+          initialState = JSON.parse(json);
+        }
+      } catch (e) { /* ignore */ }
     });
 
     // 尝试从 initialState 中提取视频信息
     let videoUrl = ogVideo || ogVideoUrl;
+    let noteTitle = '';
+    let authorName = '';
+    let coverFromState = '';
     if (!videoUrl && initialState) {
       // 遍历查找视频 URL
       try {
         const note = findNoteInState(initialState);
-        if (note) {
-          if (note.type === 'video' && note.video && note.video.media && note.video.media.stream) {
-            const stream = note.video.media.stream;
-            if (stream.master_url) {
-              videoUrl = stream.master_url;
-            } else if (stream[0] && stream[0].url) {
-              videoUrl = stream[0].url;
-            }
+        if (note && note.video && note.video.media && note.video.media.stream) {
+          videoUrl = extractVideoUrl(note.video.media.stream);
+          // 同步补全笔记元数据（SSR 数据比页面 meta 更完整）
+          noteTitle = note.title || note.desc || '';
+          authorName = note.user && note.user.nickName ? note.user.nickName : '';
+          if (note.cover && note.cover.fileId) {
+            coverFromState = `https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`;
           }
         }
       } catch (e) { /* ignore */ }
+    }
+
+    // 微信要求 https，xhscdn 直链为 http，统一转 https
+    if (videoUrl && videoUrl.startsWith('http://')) {
+      videoUrl = videoUrl.replace(/^http:\/\//, 'https://');
+    }
+
+    // 如果 __INITIAL_STATE__ 提取到但无视频/图片，可能是 SSR 数据不完整
+    // 尝试使用 Cookie 重新请求（若有新 Cookie）
+    if (!initialState && !ogImage && !images.length && !videoUrl && cookieStr) {
+      return await retryWithCookie(url, cookieStr);
     }
 
     // 判断类型
@@ -160,13 +246,14 @@ async function scrapeNoteContent(url) {
         success: true,
         platform: 'xiaohongshu',
         data: {
-          title: title || description || '',
-          coverUrl: ogImage || (images.length > 0 ? images[0] : ''),
+          title: noteTitle || title || description || '',
+          coverUrl: ogImage || coverFromState || (images.length > 0 ? images[0] : ''),
           videoUrl: videoUrl,
           noteId: extractNoteId(url),
           source: 'xiaohongshu',
           type: 'video',
           description: description,
+          author: authorName ? { name: authorName } : undefined,
         },
       };
     }
@@ -176,8 +263,8 @@ async function scrapeNoteContent(url) {
       success: true,
       platform: 'xiaohongshu',
       data: {
-        title: title || description || '',
-        coverUrl: ogImage || (images.length > 0 ? images[0] : ''),
+        title: title || noteTitle || description || '',
+        coverUrl: ogImage || coverFromState || (images.length > 0 ? images[0] : ''),
         images: images.length > 0 ? images : (ogImage ? [ogImage] : []),
         noteId: extractNoteId(url),
         source: 'xiaohongshu',
@@ -196,28 +283,59 @@ async function scrapeNoteContent(url) {
 }
 
 /**
- * 从 initialState 中递归查找笔记数据
+ * 从 initialState 中查找笔记对象（深度优先）
+ *
+ * 小红书 SSR 结构（2024+）：noteData.data.noteData
+ * 笔记对象特征：含 noteId 且有 video（视频笔记）或 imageList（图片笔记）字段
+ *
+ * 注意：不能用「键名含 note」匹配 —— SSR 里存在 errorNoteData 等空对象会抢先命中
  */
 function findNoteInState(state) {
   if (!state || typeof state !== 'object') return null;
 
-  // 常见的小红书 state 结构
-  if (state.note) return state.note;
-  if (state.noteDetail) return state.noteDetail;
-  if (state.feed) return state.feed;
+  // 当前节点就是笔记对象
+  if (state.noteId && (state.video || state.imageList)) return state;
 
-  // 递归查找
-  for (const key of Object.keys(state)) {
-    if (key.includes('note') || key.includes('Note')) {
-      return state[key];
+  if (Array.isArray(state)) {
+    for (const item of state) {
+      const r = findNoteInState(item);
+      if (r) return r;
     }
-    if (typeof state[key] === 'object') {
-      const result = findNoteInState(state[key]);
-      if (result) return result;
+    return null;
+  }
+
+  for (const key of Object.keys(state)) {
+    const val = state[key];
+    if (val && typeof val === 'object') {
+      const r = findNoteInState(val);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+/**
+ * 从视频 stream 对象中提取可播放直链
+ *
+ * 2024+ 结构：stream.h264[0].masterUrl（h264/h265/av1/h266 按编码分组）
+ * 旧结构兜底：stream.master_url / stream[0].url
+ *
+ * 优先级：h264（兼容性最好）→ h265 → av1 → 旧字段
+ */
+function extractVideoUrl(stream) {
+  if (!stream || typeof stream !== 'object') return '';
+
+  for (const codec of ['h264', 'h265', 'av1', 'h266']) {
+    const group = stream[codec];
+    if (Array.isArray(group) && group.length) {
+      const first = group[0];
+      if (first && first.masterUrl) return first.masterUrl;
     }
   }
 
-  return null;
+  if (stream.master_url) return stream.master_url;
+  if (Array.isArray(stream) && stream.length && stream[0] && stream[0].url) return stream[0].url;
+  return '';
 }
 
 /**
@@ -228,6 +346,150 @@ function extractNoteId(url) {
   if (match) return match[1];
   const match2 = url.match(/discovery\/item\/([a-f0-9]+)/);
   return match2 ? match2[1] : '';
+}
+
+/**
+ * 检测反爬/频率限制
+ *
+ * 小红书反爬标志：
+ *   - HTTP 状态码 429（Too Many Requests）
+ *   - HTTP 状态码 401（Unauthorized / 被拦截）
+ *   - 页面主体包含"访问被拒绝"、"请登录"、"验证"等关键词
+ *   - 返回非常短的 HTML（反爬页面）或包含大量随机 class 名
+ */
+function detectRateLimit(html, statusCode) {
+  if (statusCode === 429) {
+    return '请求频率过高，小红书拒绝了请求，请稍后再试';
+  }
+  if (statusCode === 401 || statusCode === 403) {
+    return '小红书拒绝了访问，可能需要登录 Cookie';
+  }
+
+  if (!html || html.length < 200) {
+    return '小红书页面返回空内容，可能已被反爬拦截';
+  }
+
+  // 检查中英文反爬关键词
+  const lowerHtml = html.toLowerCase();
+  const blockKeywords = [
+    '访问被拒绝', '请登录', '验证码', '人类验证',
+    'access denied', 'captcha', 'too many requests',
+    'please login', '请重新验证',
+  ];
+
+  for (const keyword of blockKeywords) {
+    if (lowerHtml.includes(keyword)) {
+      return '小红书检测到异常访问，请求已被拦截';
+    }
+  }
+
+  // 检测页面是否含有丰富的内容（SSR 正常页面应有数据结构）
+  const hasNormalContent = html.includes('__INITIAL_STATE__') || html.includes('og:title') || html.includes('note');
+  if (!hasNormalContent && html.length < 5000) {
+    return '小红书页面未包含有效内容，可能触发了反爬机制';
+  }
+
+  return null;
+}
+
+/**
+ * 从 set-cookie 数组中提取 Cookie 字符串
+ */
+function extractCookies(setCookieHeaders) {
+  if (!setCookieHeaders || !Array.isArray(setCookieHeaders) || setCookieHeaders.length === 0) {
+    return null;
+  }
+  return setCookieHeaders
+    .map(c => c.split(';')[0]) // 取每个 cookie 的 name=value 部分
+    .filter(c => c.includes('='))
+    .join('; ');
+}
+
+/**
+ * 携带 Cookie 重新请求小红书页面
+ * 某些情况下首次请求获得的 Cookie 可解锁后续请求
+ */
+async function retryWithCookie(url, cookieStr) {
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+        'Referer': 'https://www.xiaohongshu.com/',
+        'Cookie': cookieStr,
+      },
+      timeout: 15000,
+    });
+
+    const html = response.data;
+
+    // 再次检测反爬
+    const rateLimitCheck = detectRateLimit(html, response.status);
+    if (rateLimitCheck) {
+      return {
+        success: false,
+        platform: 'xiaohongshu',
+        error: rateLimitCheck,
+      };
+    }
+
+    const $ = cheerio.load(html);
+
+    // 尝试提取
+    const title = $('title').text().replace(' - 小红书', '') || $('meta[property="og:title"]').attr('content') || '';
+    const description = $('meta[name="description"]').attr('content') || '';
+    const ogImage = $('meta[property="og:image"]').attr('content') || '';
+    const ogVideo = $('meta[property="og:video"]').attr('content') || '';
+    const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
+
+    const images = [];
+    $('img').each((i, el) => {
+      const src = $(el).attr('src') || $(el).attr('data-src') || '';
+      if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
+        images.push(src);
+      }
+    });
+
+    const videoUrl = ogVideo || ogVideoUrl;
+
+    if (videoUrl) {
+      return {
+        success: true,
+        platform: 'xiaohongshu',
+        data: {
+          title: title || description || '',
+          coverUrl: ogImage || (images.length > 0 ? images[0] : ''),
+          videoUrl: videoUrl,
+          noteId: extractNoteId(url),
+          source: 'xiaohongshu',
+          type: 'video',
+          description: description,
+        },
+      };
+    }
+
+    if (images.length > 0) {
+      return {
+        success: true,
+        platform: 'xiaohongshu',
+        data: {
+          title: title || description || '',
+          coverUrl: ogImage || images[0],
+          images: images,
+          noteId: extractNoteId(url),
+          source: 'xiaohongshu',
+          type: 'image',
+          description: description,
+          text: $('meta[property="og:description"]').attr('content') || '',
+        },
+      };
+    }
+
+    return { success: false };
+  } catch {
+    return { success: false };
+  }
 }
 
 module.exports = { parse };

@@ -1,0 +1,6 @@
+{
+  "envId": "watermark-remover-d6d6wdf2f00fd3",
+  "cloudrun": {
+    "name": "watermark-remover"
+  }
+}
