@@ -256,12 +256,93 @@ Page({
   },
 
   /**
+   * 检查并索取相册权限
+   * - 已授权: 直接返回 true
+   * - 未授权: 调用 wx.authorize 主动索取（弹出系统授权框）
+   * - 曾被拒绝: 弹窗引导用户去设置页开启
+   * @returns {Promise<boolean>} 是否获得权限
+   */
+  ensureAlbumPermission() {
+    return new Promise((resolve) => {
+      wx.getSetting({
+        success: (res) => {
+          const auth = res.authSetting['scope.writePhotosAlbum'];
+          if (auth === true) {
+            // 已授权
+            resolve(true);
+          } else if (auth === false) {
+            // 曾被拒绝 → 只能引导去设置
+            wx.showModal({
+              title: '需要相册权限',
+              content: '保存视频需要相册权限，请在设置中开启「保存到相册」',
+              confirmText: '去设置',
+              cancelText: '取消',
+              success: (modalRes) => {
+                if (modalRes.confirm) {
+                  wx.openSetting({
+                    success: (settingRes) => {
+                      resolve(!!settingRes.authSetting['scope.writePhotosAlbum']);
+                    },
+                    fail: () => resolve(false),
+                  });
+                } else {
+                  resolve(false);
+                }
+              },
+              fail: () => resolve(false),
+            });
+          } else {
+            // 从未询问过 → 主动索取
+            wx.authorize({
+              scope: 'scope.writePhotosAlbum',
+              success: () => resolve(true),
+              fail: () => {
+                // 用户拒绝授权 → 引导去设置
+                wx.showModal({
+                  title: '需要相册权限',
+                  content: '保存视频需要相册权限，请在设置中开启「保存到相册」',
+                  confirmText: '去设置',
+                  cancelText: '取消',
+                  success: (modalRes) => {
+                    if (modalRes.confirm) {
+                      wx.openSetting({
+                        success: (settingRes) => {
+                          resolve(!!settingRes.authSetting['scope.writePhotosAlbum']);
+                        },
+                        fail: () => resolve(false),
+                      });
+                    } else {
+                      resolve(false);
+                    }
+                  },
+                  fail: () => resolve(false),
+                });
+              },
+            });
+          }
+        },
+        fail: () => resolve(true), // 读不到设置时放行，让保存流程自己报错
+      });
+    });
+  },
+
+  /**
    * 保存视频到相册
+   * 流程: 点击 → 主动索取相册权限 → 下载去水印视频 → 存入相册
    */
   async onSaveVideo() {
-    const videoUrl = this.data.resultData.data.proxyVideoUrl || this.data.resultData.data.videoUrl;
+    // 保存用原始 videoUrl（proxyVideoUrl 是给 video 组件播放的代理地址，
+    // 再套 /api/download 会二次代理多一跳浪费流量）
+    const videoUrl = this.data.resultData.data.videoUrl;
     if (!videoUrl) {
       app.showToast('视频地址无效');
+      return;
+    }
+
+    // 第一步: 主动索取相册权限
+    const granted = await this.ensureAlbumPermission();
+    if (!granted) {
+      app.showToast('未获得相册权限，无法保存');
       return;
     }
 
@@ -286,25 +367,6 @@ Page({
       app.showToast('✅ 已保存到相册', 'success');
     } catch (err) {
       console.error('保存视频失败:', err);
-      if (err.errMsg && err.errMsg.includes('auth')) {
-        try {
-          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
-          return this.onSaveVideo();
-        } catch (authErr) {
-          // 引导用户手动开启
-          wx.showModal({
-            title: '需要相册权限',
-            content: '请在设置中开启「保存到相册」权限',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) {
-                wx.openSetting();
-              }
-            },
-          });
-          return;
-        }
-      }
       app.showToast('保存失败: ' + (err.errMsg || err.message));
     } finally {
       this.setData({ isSaving: false });
@@ -323,9 +385,17 @@ Page({
     }
 
     const item = items[index];
-    const videoUrl = item.proxyUrl || item.url;
+    // 保存用原始 url（proxyUrl 是播放代理，套 download 会二次代理）
+    const videoUrl = item.url;
     if (!videoUrl) {
       app.showToast('视频地址无效');
+      return;
+    }
+
+    // 主动索取相册权限
+    const granted = await this.ensureAlbumPermission();
+    if (!granted) {
+      app.showToast('未获得相册权限，无法保存');
       return;
     }
 
@@ -350,24 +420,6 @@ Page({
       app.showToast('✅ 已保存到相册', 'success');
     } catch (err) {
       console.error('保存视频失败:', err);
-      if (err.errMsg && err.errMsg.includes('auth')) {
-        try {
-          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
-          return this.onSaveListItem(e);
-        } catch (authErr) {
-          wx.showModal({
-            title: '需要相册权限',
-            content: '请在设置中开启「保存到相册」权限',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) {
-                wx.openSetting();
-              }
-            },
-          });
-          return;
-        }
-      }
       app.showToast('保存失败: ' + (err.errMsg || err.message));
     } finally {
       this.setData({ isSavingListItem: false, currentSaveIndex: -1 });
@@ -386,6 +438,13 @@ Page({
     }
 
     const downloadTargets = (proxyImages && proxyImages.length === images.length) ? proxyImages : images;
+
+    // 主动索取相册权限
+    const granted = await this.ensureAlbumPermission();
+    if (!granted) {
+      app.showToast('未获得相册权限，无法保存');
+      return;
+    }
 
     this.setData({
       isSaving: true,
@@ -424,24 +483,6 @@ Page({
       app.showToast(`✅ 已保存 ${this.data.imageSaveProgress.current}/${images.length}`, 'success');
     } catch (err) {
       console.error('保存图片失败:', err);
-      if (err.errMsg && err.errMsg.includes('auth')) {
-        try {
-          await wx.authorize({ scope: 'scope.writePhotosAlbum' });
-          return this.onSaveImages();
-        } catch (authErr) {
-          wx.showModal({
-            title: '需要相册权限',
-            content: '请在设置中开启「保存到相册」权限',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) {
-                wx.openSetting();
-              }
-            },
-          });
-          return;
-        }
-      }
       app.showToast('保存失败: ' + (err.errMsg || err.message));
     } finally {
       this.setData({ isSaving: false, imageSaveProgress: null });
