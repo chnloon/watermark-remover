@@ -297,25 +297,19 @@ Page({
     this.setData({ isLoading: true });
 
     try {
-      // 抖音短链接：服务端 IP 下被风控（302→首页拿不到视频 ID），
-      // 但用户手机 IP 可信 —— 先在小程序端把短链解码成完整链接再解析
-      if (/v\.douyin\.com\/[\w-]+/.test(url) && !/\/video\/\d{17,21}/.test(url)) {
-        wx.showLoading({ title: '正在解析短链…', mask: true });
-        const fullLink = await resolveDouyinShortLink(url);
-        wx.hideLoading();
-        if (fullLink) {
-          url = fullLink;
-        } else {
-          // 解码失败：继续交给服务端兜底（如 lux / 三方 API）
-          console.log('[短链解码] 小程序端提取视频 ID 失败，交由服务端兜底');
-        }
-      }
-
+      // 抖音短链统一交给后端解码：
+      // - 前端 wx.request 请求 v.douyin.com 在真机被微信拦截（非合法域名）
+      // - 后端无域名限制，可直接解码短链（302→完整链接）再解析
       const result = await app.request('/parse', 'POST', { url });
 
       if (!result.success) {
         this.setData({ isLoading: false });
-        this.showError(result.error || '解析失败，请检查链接是否有效', url);
+        // 抖音解析失败：平台风控限制（服务器无法访问抖音），给出明确提示
+        if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
+          this.showError('抖音解析暂时不可用（平台限制），可尝试快手/小红书/网页视频', url);
+        } else {
+          this.showError(result.error || '解析失败，请检查链接是否有效', url);
+        }
         return;
       }
 

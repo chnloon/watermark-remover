@@ -3,12 +3,9 @@
  */
 
 // 后端服务地址
-// 开发模式: 微信开发者工具 → 详情 → 本地设置 → 勾选"不校验合法域名"
-// 生产模式: 替换为正式服务器域名
-// 正式环境: 微信云托管 CloudRun 服务
-// 本地联调: http://localhost:3000/api （开发者工具需勾选"不校验合法域名"）
-// 线上: https://watermark-remover-4181976-1256682929.ap-shanghai.run.tcloudbase.com/api
-const API_BASE_URL = 'http://localhost:3000/api';
+// 生产环境: 微信云托管 CloudRun 服务（正式域名）
+// 真机调试需在小程序后台配置该域名为合法域名
+const API_BASE_URL = 'https://watermark-remover-4181976-1256682929.ap-shanghai.run.tcloudbase.com/api';
 
 App({
   // 全局数据
