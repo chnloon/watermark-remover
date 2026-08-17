@@ -19,6 +19,7 @@ Page({
     hasVideoUrl: false,
     selectedImages: [],
     selectedCount: 0,
+    allSelected: false,
   },
 
   onLoad() {
@@ -38,6 +39,7 @@ Page({
       // 图片多选：初始全部未选中
       selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
       selectedCount: 0,
+      allSelected: false,
     });
 
     // 保存到历史记录
@@ -153,6 +155,7 @@ Page({
           // 图片多选状态重置：初始全部未选中
           selectedImages: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
           selectedCount: 0,
+          allSelected: false,
         });
 
         this.saveToHistory(result);
@@ -174,6 +177,7 @@ Page({
 
   /**
    * 切换单张图片的选中状态
+   * 全选状态下依然可取消单张勾选；全部取消后按钮自动回到"全选"
    */
   onToggleImage(e) {
     const index = e.currentTarget.dataset.index;
@@ -183,31 +187,32 @@ Page({
       this.setData({
         selectedImages: selected,
         selectedCount: selected.filter(Boolean).length,
+        // 所有图片都选中 → 按钮显示"全不选"；否则显示"全选"
+        allSelected: selected.length > 0 && selected.every(Boolean),
       });
     }
   },
 
   /**
-   * 全选所有图片
+   * 顶部按钮 — 单按钮切换:
+   * - 当前非全选 → 全选所有图片，按钮变"全不选"
+   * - 当前全选 → 取消所有勾选，按钮变"全选"
    */
-  onSelectAll() {
-    const selected = this.data.selectedImages.map(() => true);
-    this.setData({
-      selectedImages: selected,
-      selectedCount: selected.length,
-    });
-    app.showToast('已全选');
-  },
+  onToggleSelectAll() {
+    const total = this.data.selectedImages.length;
+    const allOn = this.data.allSelected;
+    const selected = allOn
+      ? this.data.selectedImages.map(() => false)   // 全不选
+      : this.data.selectedImages.map(() => true);    // 全选
 
-  /**
-   * 全不选（清空所有选择）
-   */
-  onSelectNone() {
-    const selected = this.data.selectedImages.map(() => false);
     this.setData({
       selectedImages: selected,
-      selectedCount: 0,
+      selectedCount: allOn ? 0 : total,
+      allSelected: !allOn,
     });
+    if (!allOn) {
+      app.showToast('已全选');
+    }
   },
 
   /**

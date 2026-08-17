@@ -62,12 +62,14 @@
 
     <!-- ===== 图片预览 (网格 + 多选) ===== -->
     <view wx:if="{{resultData.data.type === 'image'}}" class="media-card media-card--image fade-in-up--d1">
-      <!-- 顶部工具栏: 标题 + 全选/全不选 -->
+      <!-- 顶部工具栏: 标题 + 全选/全不选切换按钮 -->
       <view class="image-toolbar">
         <text class="image-toolbar__title">共 {{resultData.data.images.length}} 张图片</text>
         <view class="image-toolbar__btns">
-          <text class="image-toolbar__btn" bindtap="onSelectAll">全选</text>
-          <text class="image-toolbar__btn image-toolbar__btn--none" bindtap="onSelectNone">全不选</text>
+          <text
+            class="image-toolbar__btn {{allSelected ? 'image-toolbar__btn--none' : ''}}"
+            bindtap="onToggleSelectAll"
+          >{{allSelected ? '全不选' : '全选'}}</text>
         </view>
       </view>
 
