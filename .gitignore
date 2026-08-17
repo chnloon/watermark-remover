@@ -21,3 +21,6 @@ take-screenshot.ps1
 screenshot.png
 preview-qr.png
 *.frames/
+
+# 自动化测试截图
+tools/wechat-automation/*.png
