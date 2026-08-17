@@ -27,13 +27,8 @@
   <!-- ===== 结果内容 ===== -->
   <view wx:else class="result-container">
 
-    <!-- 顶部：返回按钮 -->
+    <!-- 顶部留白（无返回按钮） -->
     <view class="result-header fade-in-up">
-      <view class="result-header__back" bindtap="onBack">
-        <text class="result-header__back-icon">‹</text>
-        <text class="result-header__back-text">返回</text>
-      </view>
-      <view class="result-header__spacer"></view>
     </view>
 
     <!-- ===== 视频预览卡片 (Apple Music 风格) ===== -->
@@ -54,15 +49,6 @@
         <!-- 无视频地址兜底：浅色占位，避免空 src 黑底 -->
         <view wx:else class="media-card__video-placeholder">
           <text class="video-status">视频地址缺失，请重新解析</text>
-        </view>
-      </view>
-
-      <!-- 加载/错误状态 -->
-      <view wx:if="{{hasVideoUrl && videoStatus && !videoError}}" class="media-card__status-loading">
-        <view class="loading-spinner">
-          <view class="loading-spinner__dot"></view>
-          <view class="loading-spinner__dot"></view>
-          <view class="loading-spinner__dot"></view>
         </view>
       </view>
 
