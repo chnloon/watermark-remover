@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -307,8 +307,8 @@ body {
 <body>
 
 <!-- ===== 背景层：Kling 动效视频 + 光晕 + 云海 + 星尘 ===== -->
-<!-- ① 动效视频背景（Kling AI 制作，固定机位，循环播放） -->
-<video class="bg-video" id="bgVideo" autoplay muted loop playsinline preload="auto">
+<!-- ① 动效视频背景（Kling AI 制作，JS 控制加载后渐入） -->
+<video class="bg-video" id="bgVideo" muted loop playsinline preload="auto">
   <source src="video/bg.mp4" type="video/mp4">
 </video>
 <!-- ② 蓝色光晕（缓缓流动） -->
@@ -410,15 +410,18 @@ body {
 /* ========================================
    背景层（方案C：氛围图+动效）
    ======================================== */
-/* ① 动效视频背景（云层之上，固定机位循环） */
+/* ① 动效视频背景（云层之上，JS加载后渐入，避免闪白） */
 .bg-video {
   position: fixed; inset:0;
   width:100%; height:100%;
   object-fit:cover;
   z-index:0;
   pointer-events:none;
+  opacity:0;
+  transition:opacity 1s ease;
   filter:brightness(1.05) saturate(1.05);
 }
+.bg-video.loaded { opacity:1; }
 
 /* ② 金色光晕（缓缓流动） */
 .bg-aura { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
@@ -469,6 +472,32 @@ body {
   0%,100%{ transform:translateX(-2%); }
   50%{ transform:translateX(2%); }
 }
+/* ========================================
+   背景视频加载控制（避免闪白）
+   ======================================== */
+const bgVideo = document.getElementById('bgVideo');
+if (bgVideo) {
+  const showVideo = () => {
+    bgVideo.classList.add('loaded');
+    bgVideo.play().catch(() => { /* 自动播放被拦则保持静音重试 */ });
+  };
+  if (bgVideo.readyState >= 2) {
+    showVideo();
+  } else {
+    bgVideo.addEventListener('loadeddata', showVideo, { once: true });
+    bgVideo.addEventListener('canplay', showVideo, { once: true });
+    // 加载失败兜底：显示云海图
+    bgVideo.addEventListener('error', () => {
+      document.body.style.background =
+        "url('https://images.unsplash.com/photo-1499346030926-9a72daac6c63?w=2560&q=80') center/cover fixed";
+    }, { once: true });
+  }
+  // 超时兜底：3秒还没加载完也尝试显示
+  setTimeout(() => {
+    if (!bgVideo.classList.contains('loaded') && bgVideo.readyState > 0) showVideo();
+  }, 3000);
+}
+
 const cv = document.getElementById('universe');
 const ctx = cv.getContext('2d');
 let W, H, stars = [], mouseX = 0, mouseY = 0;
