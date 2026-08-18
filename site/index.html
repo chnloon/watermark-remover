@@ -34,6 +34,13 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
+/* ---- 粒子背景 ---- */
+#particles {
+  position: fixed; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
     'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
@@ -200,46 +207,106 @@ body {
   margin-bottom: 28px;
 }
 
-.works__flow {
-  display: flex; gap: 18px;
-  width: max-content;
-  animation: flow 45s linear infinite;
-  padding-bottom: 24px;
+/* ---- 作品区：竖向滚动列表，模糊→清晰 ---- */
+.works {
+  width: 100%;
+  max-width: 900px;
+  margin: 100px auto 0;
+  padding: 0 24px;
 }
-.works:hover .works__flow { animation-play-state: paused; }
 
-.work-card {
-  width: 320px; flex-shrink: 0;
-  background: var(--fill-tertiary);   /* 层级而非阴影 */
-  border-radius: 18px;
-  padding: 20px;
-  transition: background .3s, transform .3s;
+.works__label {
+  text-align: center;
+  font-size: 12px; color: var(--text-tertiary);
+  letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 44px;
+}
+
+.works__list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* 单个作品大卡片 */
+.work-item {
+  display: flex;
+  gap: 28px;
+  background: var(--fill-tertiary);
+  border-radius: 24px;
+  padding: 28px;
+  align-items: center;
   cursor: pointer;
-}
-.work-card:hover {
-  background: var(--fill-quaternary);
-  transform: translateY(-4px);
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateY(30px);
+  transition: opacity .8s ease, filter .8s ease, transform .8s ease, background .3s;
 }
 
-.work-card__thumb {
-  width: 100%; height: 170px;
-  border-radius: 12px;
+/* 进入视口后：模糊→清晰 */
+.work-item.in-view {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+.work-item:hover {
+  background: var(--fill-quaternary);
+}
+
+.work-item__thumb {
+  flex-shrink: 0;
+  width: 180px; height: 130px;
+  border-radius: 16px;
   background: var(--fill-quaternary);
   display: flex; align-items: center; justify-content: center;
-  font-size: 46px;
-  margin-bottom: 14px;
+  font-size: 52px;
 }
 
-.work-card__title {
-  font-size: 17px; font-weight: 500;
-  letter-spacing: -0.3px;
+.work-item__body { flex: 1; }
+
+.work-item__title {
+  font-size: 24px; font-weight: 600;
+  letter-spacing: -0.5px;
   color: var(--text-primary);
 }
 
-.work-card__meta {
-  display: flex; justify-content: space-between;
-  margin-top: 8px;
-  font-size: 13px; color: var(--text-tertiary);
+.work-item__desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  line-height: 1.6;
+  letter-spacing: -0.1px;
+}
+
+.work-item__highlights {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.work-item__tag {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--fill-primary);
+  border-radius: 100px;
+  padding: 4px 14px;
+  letter-spacing: .5px;
+}
+
+.work-item__meta {
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* 移动端适配 */
+@media (max-width: 834px) {
+  .work-item { flex-direction: column; align-items: flex-start; }
+  .work-item__thumb { width: 100%; height: 180px; }
+  .work-item__meta { text-align: left; }
 }
 
 /* ---- 栏目 ---- */
@@ -426,6 +493,9 @@ body {
 </head>
 <body>
 
+<!-- 粒子背景 -->
+<canvas id="particles" aria-hidden="true"></canvas>
+
 <!-- 毛玻璃导航 -->
 <nav class="nav">
   <a class="nav__brand" href="/">YCGEE<span class="brand-zh">云川集</span></a>
@@ -452,9 +522,12 @@ body {
     <div class="idea-box__hint">免费体验 3 次 · 无需任何技术</div>
   </div>
 
+  <!-- 作品区：下滑滚动，模糊→清晰 -->
   <div class="works" id="works">
     <div class="works__label">来自创作者的想象力</div>
-    <div class="works__flow" id="workFlow"></div>
+    <div class="works__list" id="workList">
+      <!-- 由 JS 渲染 -->
+    </div>
   </div>
 </section>
 
@@ -494,33 +567,147 @@ body {
 </div>
 
 <script>
+/* ========================================
+   粒子背景（黑白灰系，缓缓漂浮）
+   ======================================== */
+const particleCanvas = document.getElementById('particles');
+const pctx = particleCanvas.getContext('2d');
+let particles = [];
+let pW = 0, pH = 0;
+
+function resizeParticles() {
+  pW = particleCanvas.width = window.innerWidth;
+  pH = particleCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeParticles);
+resizeParticles();
+
+function initParticles() {
+  const count = Math.min(60, Math.floor(pW / 25));
+  particles = [];
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * pW,
+      y: Math.random() * pH,
+      r: Math.random() * 2.2 + 0.6,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      a: Math.random() * 0.35 + 0.08,   // 极淡
+    });
+  }
+}
+initParticles();
+
+function drawParticles() {
+  pctx.clearRect(0, 0, pW, pH);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = pW; if (p.x > pW) p.x = 0;
+    if (p.y < 0) p.y = pH; if (p.y > pH) p.y = 0;
+    pctx.beginPath();
+    pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    pctx.fillStyle = `rgba(29, 29, 31, ${p.a})`;
+    pctx.fill();
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+/* ========================================
+   作品区：竖向滚动列表（模糊→清晰 + 特色说明）
+   ======================================== */
 const works = [
-  { icon: '💌', title: '三周年纪念网页', likes: '1.2k' },
-  { icon: '🎂', title: '妈妈的生日 H5', likes: '982' },
-  { icon: '🖋', title: '手写情书生成器', likes: '1.5k' },
-  { icon: '🐱', title: '我家猫的专属主页', likes: '2.1k' },
-  { icon: '🎨', title: '赛博朋克 Logo 定制', likes: '876' },
-  { icon: '📖', title: '童年故事绘本', likes: '1.8k' },
-  { icon: '🌅', title: '旅行回忆视频', likes: '1.3k' },
-  { icon: '🎵', title: '专属告白歌曲页', likes: '2.6k' },
+  {
+    icon: '💌',
+    title: '三周年纪念网页',
+    desc: '把三年的照片、聊天记录和共同回忆，做成一个可以一直打开的专属网页。',
+    highlights: ['照片墙', '纪念时间轴', '背景音乐'],
+    likes: '1.2k'
+  },
+  {
+    icon: '🎂',
+    title: '妈妈的生日 H5',
+    desc: '为妈妈生成一个会动的生日贺卡——她的照片、你写的话、还有全家福滚动播放。',
+    highlights: ['动态贺卡', '全家福相册', '祝福弹幕'],
+    likes: '982'
+  },
+  {
+    icon: '🖋',
+    title: '手写情书生成器',
+    desc: '把你的心里话变成一封有温度的手写体情书，可打印、可保存、可发送。',
+    highlights: ['手写字体', '信纸模板', '一键打印'],
+    likes: '1.5k'
+  },
+  {
+    icon: '🐱',
+    title: '我家猫的专属主页',
+    desc: '为毛孩子做一个专属主页：照片、日常、萌点标签，分享给朋友一起云吸猫。',
+    highlights: ['萌宠主页', '日常记录', '一键分享'],
+    likes: '2.1k'
+  },
+  {
+    icon: '🎨',
+    title: '赛博朋克 Logo 定制',
+    desc: '说出你的品牌名，AI 生成赛博朋克风格的 Logo——独一无二，随时可商用。',
+    highlights: ['AI 生成', '多种风格', '高清下载'],
+    likes: '876'
+  },
+  {
+    icon: '📖',
+    title: '童年故事绘本',
+    desc: '把孩子的童年趣事变成一本图文并茂的电子绘本，留住成长瞬间。',
+    highlights: ['故事生成', '插画配图', '可打印成册'],
+    likes: '1.8k'
+  },
+  {
+    icon: '🌅',
+    title: '旅行回忆视频',
+    desc: '把旅行的照片和视频，自动剪辑成一支有节奏、有字幕的回忆影片。',
+    highlights: ['智能剪辑', '卡点配乐', '自动字幕'],
+    likes: '1.3k'
+  },
+  {
+    icon: '🎵',
+    title: '专属告白歌曲页',
+    desc: '把你的告白写进一个会播放歌曲、会飘落花瓣的网页——TA 一定会记住这一刻。',
+    highlights: ['背景音乐', '花瓣特效', '心意文案'],
+    likes: '2.6k'
+  },
 ];
 
-const flow = document.getElementById('workFlow');
-const render = () => {
-  works.forEach(w => {
-    const card = document.createElement('div');
-    card.className = 'work-card';
-    card.innerHTML = `
-      <div class="work-card__thumb">${w.icon}</div>
-      <div class="work-card__title">${w.title}</div>
-      <div class="work-card__meta">
-        <span>创意作品</span>
-        <span>♥ ${w.likes}</span>
-      </div>`;
-    flow.appendChild(card);
+const workList = document.getElementById('workList');
+
+function renderWorks() {
+  works.forEach((w, i) => {
+    const item = document.createElement('div');
+    item.className = 'work-item';
+    item.style.transitionDelay = '0s';
+    item.innerHTML = `
+      <div class="work-item__thumb">${w.icon}</div>
+      <div class="work-item__body">
+        <div class="work-item__title">${w.title}</div>
+        <div class="work-item__desc">${w.desc}</div>
+        <div class="work-item__highlights">
+          ${w.highlights.map(h => `<span class="work-item__tag">${h}</span>`).join('')}
+        </div>
+      </div>
+      <div class="work-item__meta">♥ ${w.likes}</div>`;
+    workList.appendChild(item);
   });
-};
-render(); render();
+
+  // 滚动模糊→清晰（IntersectionObserver）
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.work-item').forEach(el => observer.observe(el));
+}
+renderWorks();
 
 /* ========================================
    解压气泡等待彩蛋逻辑
