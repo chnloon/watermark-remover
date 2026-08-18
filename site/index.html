@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -69,6 +69,7 @@ body {
 .nav__link:hover { color:#2b6cff; }
 .nav__cta {
   font-size:13px; font-weight:600;
+  opacity:.5;
   color:#fff; background:#2b6cff;   /* 蓝色 */
   border:none; border-radius:100px; padding:9px 22px; cursor:pointer;
   transition:transform .2s, box-shadow .2s;
@@ -112,6 +113,7 @@ body {
 /* 输入条：flex 布局，按钮完全内嵌（浅色透明） */
 .gate__bar {
   display:flex; align-items:stretch;
+  opacity:.5;
   background:rgba(255,255,255,.65);
   border:1px solid rgba(148,163,184,.35);
   border-radius:14px;
@@ -134,6 +136,7 @@ body {
 .gate__input::placeholder { color:#94a3b8; }
 .gate__btn {
   flex-shrink:0; align-self:center;
+  opacity:.5;
   background:linear-gradient(135deg, #4a9eff, #2b6cff);
   color:#fff; border:none; border-radius:10px;
   padding:14px 26px; font-size:14px; font-weight:600;
@@ -157,6 +160,7 @@ body {
 /* 一颗星体（作品） */
 .star {
   display:flex; align-items:center; gap:40px;
+  opacity:.5;
   opacity:0; transform:scale(.92) translateY(40px);
   transition:opacity .9s ease, transform .9s ease;
   padding:24px;
@@ -216,6 +220,7 @@ body {
 .regions__grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:44px; }
 .region {
   background:rgba(255,255,255,.45);
+  opacity:.5;
   border:1px solid rgba(255,255,255,.6);
   border-radius:16px; padding:36px 28px; cursor:pointer;
   backdrop-filter:blur(10px);
@@ -301,10 +306,12 @@ body {
 </head>
 <body>
 
-<!-- ===== 背景层：山海氛围图 + 光晕 + 云海（方案C：图片基底+动效活起来） ===== -->
-<!-- ① 山海氛围图（深蓝星空+山脉，视差） -->
-<div class="bg-scene" id="bgScene"></div>
-<!-- ② 金色光晕（缓缓流动） -->
+<!-- ===== 背景层：Kling 动效视频 + 光晕 + 云海 + 星尘 ===== -->
+<!-- ① 动效视频背景（Kling AI 制作，固定机位，循环播放） -->
+<video class="bg-video" id="bgVideo" autoplay muted loop playsinline preload="auto">
+  <source src="video/bg.mp4" type="video/mp4">
+</video>
+<!-- ② 蓝色光晕（缓缓流动） -->
 <div class="bg-aura" aria-hidden="true">
   <div class="bg-aura__orb bg-aura__orb--1"></div>
   <div class="bg-aura__orb bg-aura__orb--2"></div>
@@ -403,18 +410,14 @@ body {
 /* ========================================
    背景层（方案C：氛围图+动效）
    ======================================== */
-/* ① 云海天空图（云层之上自由飞翔） */
-.bg-scene {
-  position: fixed; inset:-30px;   /* 略放大，给视差留空间 */
+/* ① 动效视频背景（云层之上，固定机位循环） */
+.bg-video {
+  position: fixed; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
   z-index:0;
-  background-image:
-    linear-gradient(to bottom, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 60%, rgba(240,244,250,.35) 100%),
-    url('https://images.unsplash.com/photo-1499346030926-9a72daac6c63?w=2560&q=80');
-  background-size:cover;
-  background-position:center;
-  transform:scale(1.02);
-  will-change:transform;
-  transition:transform .2s ease-out;
+  pointer-events:none;
+  filter:brightness(1.05) saturate(1.05);
 }
 
 /* ② 金色光晕（缓缓流动） */
@@ -488,13 +491,6 @@ window.addEventListener('resize', resize);
 resize();
 window.addEventListener('mousemove', e => {
   mouseX = e.clientX; mouseY = e.clientY;
-  // 背景图视差（跟随鼠标微移）
-  const bg = document.getElementById('bgScene');
-  if (bg) {
-    const dx = (e.clientX / innerWidth - 0.5) * -20;
-    const dy = (e.clientY / innerHeight - 0.5) * -14;
-    bg.style.transform = `scale(1.05) translate(${dx}px, ${dy}px)`;
-  }
 });
 
 let t = 0;
