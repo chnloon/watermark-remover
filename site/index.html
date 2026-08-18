@@ -58,10 +58,19 @@ body {
 }
 
 .nav__brand {
-  font-size: 15px; font-weight: 600;
-  letter-spacing: -0.2px;
+  font-size: 16px; font-weight: 700;
+  letter-spacing: 1px;
   color: var(--text-primary);
   text-decoration: none;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.nav__brand .brand-zh {
+  font-size: 12px; font-weight: 400;
+  color: var(--text-tertiary);
+  letter-spacing: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--fill-quaternary);
 }
 
 .nav__links { display: flex; gap: 34px; align-items: center; }
@@ -419,7 +428,7 @@ body {
 
 <!-- 毛玻璃导航 -->
 <nav class="nav">
-  <a class="nav__brand" href="/">云川集</a>
+  <a class="nav__brand" href="/">YCGEE<span class="brand-zh">云川集</span></a>
   <div class="nav__links">
     <a class="nav__link" href="#works">作品</a>
     <a class="nav__link" href="#sections">工坊</a>
@@ -473,7 +482,7 @@ body {
   </div>
 </section>
 
-<footer class="footer">云川集 · 让想象力被看见、被实现、被珍视</footer>
+<footer class="footer">YCGEE · 云川集 · 让想象力被看见、被实现、被珍视</footer>
 
 <!-- 解压气泡等待层 -->
 <div class="zen-overlay" id="zenOverlay">
