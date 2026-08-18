@@ -86,35 +86,42 @@ body {
 /* ---- 想法输入（星门） ---- */
 .gate {
   width:100%; max-width:640px;
-  margin-top:52px; position:relative;
+  margin-top:52px;
   animation:floatIn 1s .3s ease both;
 }
-.gate__input {
-  width:100%;
+/* 输入条：flex 布局，按钮完全内嵌 */
+.gate__bar {
+  display:flex; align-items:stretch;
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.12);
   border-radius:14px;
-  padding:22px 28px;
-  font-size:16px; color:#f2f3f7; outline:none;
-  font-family:inherit; letter-spacing:.5px;
+  padding:6px 6px 6px 20px;
   backdrop-filter:blur(10px);
   transition:border-color .3s, background .3s, box-shadow .3s;
 }
-.gate__input::placeholder { color:#5d6378; }
-.gate__input:focus {
+.gate__bar:focus-within {
   border-color:rgba(200,168,110,.6);
   background:rgba(255,255,255,.06);
   box-shadow:0 0 40px rgba(200,168,110,.15);
 }
+.gate__input {
+  flex:1; min-width:0;
+  background:transparent; border:none; outline:none;
+  padding:16px 12px 16px 8px;
+  font-size:16px; color:#f2f3f7;
+  font-family:inherit; letter-spacing:.5px;
+}
+.gate__input::placeholder { color:#5d6378; }
 .gate__btn {
-  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  flex-shrink:0; align-self:center;
   background:linear-gradient(135deg, #e0c284, #b8925a);
   color:#05060a; border:none; border-radius:10px;
-  padding:13px 24px; font-size:14px; font-weight:600;
+  padding:14px 26px; font-size:14px; font-weight:600;
   cursor:pointer; font-family:inherit; letter-spacing:2px;
+  white-space:nowrap;
   transition:transform .2s, box-shadow .2s;
 }
-.gate__btn:hover { transform:translateY(-50%) scale(1.04); box-shadow:0 8px 30px rgba(200,168,110,.4); }
+.gate__btn:hover { transform:scale(1.03); box-shadow:0 8px 30px rgba(200,168,110,.4); }
 .gate__hint { margin-top:16px; font-size:12px; color:#5d6378; letter-spacing:1px; }
 
 /* ---- 星云区（滚动穿越） ---- */
@@ -244,7 +251,6 @@ body {
   .star__meta{text-align:center;}
   .regions__grid{grid-template-columns:1fr;}
   .nav__links .nav__link{display:none;}
-  .gate__btn{position:static;transform:none;width:100%;margin-top:12px;}
 }
 </style>
 </head>
@@ -268,8 +274,10 @@ body {
   <p class="hero__sub">说出来，让它诞生、发光、被看见</p>
 
   <div class="gate">
-    <input class="gate__input" type="text" placeholder="说出你的想法… 例如：给妈妈做一个生日纪念视频" autocomplete="off">
-    <button class="gate__btn">点亮</button>
+    <div class="gate__bar">
+      <input class="gate__input" type="text" placeholder="说出你的想法… 例如：给妈妈做一个生日纪念视频" autocomplete="off">
+      <button class="gate__btn">点亮</button>
+    </div>
     <div class="gate__hint">免费体验 3 次 · 每个想法都是一颗新星</div>
   </div>
 
