@@ -147,13 +147,25 @@ body {
   flex-shrink:0;
   width:170px; height:170px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-size:60px;
-  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.15), rgba(255,255,255,.02) 60%);
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.12), rgba(255,255,255,.02) 60%);
   border:1px solid rgba(255,255,255,.12);
+  position:relative;
   box-shadow:
-    0 0 60px rgba(200,168,110,.15),
+    0 0 60px rgba(200,168,110,.12),
     inset 0 0 30px rgba(255,255,255,.03);
   animation:orbitPulse 4s ease-in-out infinite;
+}
+/* 行星光环 */
+.star__orb::after {
+  content:'';
+  position:absolute; inset:-6px;
+  border-radius:50%;
+  border:1px solid rgba(200,168,110,.15);
+  transform:rotate(-12deg) scaleX(1.08);
+}
+.star__orb svg {
+  position:relative; z-index:1;
+  filter:drop-shadow(0 0 12px rgba(200,168,110,.35));
 }
 
 .star__body { flex:1; }
@@ -184,7 +196,13 @@ body {
   transition:transform .3s, background .3s, border-color .3s;
 }
 .region:hover { transform:translateY(-4px); background:rgba(255,255,255,.05); border-color:rgba(200,168,110,.3); }
-.region__icon { font-size:34px; }
+.region__icon {
+  width:52px; height:52px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%, rgba(200,168,110,.12), rgba(200,168,110,.02) 60%);
+  border:1px solid rgba(200,168,110,.2);
+  box-shadow:0 0 24px rgba(200,168,110,.1);
+}
 .region__title { font-size:19px; font-weight:600; margin-top:14px; color:#f2f3f7; }
 .region__desc { font-size:14px; color:#8a90a5; margin-top:10px; line-height:1.6; }
 .region__link { display:inline-block; margin-top:14px; font-size:14px; color:#d4b97f; text-decoration:none; }
@@ -292,19 +310,36 @@ body {
 <section class="regions" id="regions">
   <div class="regions__grid">
     <div class="region">
-      <div class="region__icon">🎁</div>
+      <div class="region__icon">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 4 L21 13 L30 15 L23 21 L25 30 L18 25.5 L11 30 L13 21 L6 15 L15 13 Z"/>
+          <circle cx="18" cy="18" r="2" fill="#c8a86e" stroke="none"/>
+        </svg>
+      </div>
       <div class="region__title">惊喜工坊</div>
       <div class="region__desc">生日 · 表白 · 纪念日——给重要的人一份独一无二的惊喜。</div>
       <a class="region__link" href="#">进入星域 ›</a>
     </div>
     <div class="region">
-      <div class="region__icon">🖼</div>
+      <div class="region__icon">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="7" width="26" height="22" rx="2"/>
+          <circle cx="12" cy="14" r="3"/>
+          <path d="M5 25 L13 17 L19 22 L24 16 L31 23"/>
+        </svg>
+      </div>
       <div class="region__title">作品广场</div>
       <div class="region__desc">创作者的想象力成品，浏览、点赞、一键同款。</div>
       <a class="region__link" href="#">进入星域 ›</a>
     </div>
     <div class="region">
-      <div class="region__icon">🤝</div>
+      <div class="region__icon">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="14" cy="14" r="7"/>
+          <circle cx="25" cy="22" r="7"/>
+          <path d="M14 21 L25 22 M14 21 C12 24 14 26 16 25"/>
+        </svg>
+      </div>
       <div class="region__title">创意集市</div>
       <div class="region__desc">有需求？发出来。有能力？接下单。互动即收益。</div>
       <a class="region__link" href="#">进入星域 ›</a>
@@ -378,14 +413,14 @@ requestAnimationFrame(drawUniverse);
 
 /* ---- 星体数据（作品 = 星） ---- */
 const stars_data = [
-  { icon: '💌', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一颗可以一直发光的星。', tags: ['照片墙','时间轴','音乐'], likes:'1.2k' },
-  { icon: '🎂', title: '妈妈的生日 H5', desc: '为妈妈点亮一颗生日星——她的照片、你写的话、全家福缓缓转动。', tags: ['动态贺卡','全家福','祝福弹幕'], likes:'982' },
-  { icon: '🖋', title: '手写情书生成器', desc: '把心里话变成一封有温度的手写体情书，可打印、可保存。', tags: ['手写字体','信纸','打印'], likes:'1.5k' },
-  { icon: '🐱', title: '我家猫的专属主页', desc: '为毛孩子建一颗星：照片、日常、萌点，分享给朋友一起云吸猫。', tags: ['萌宠','日常','分享'], likes:'2.1k' },
-  { icon: '🎨', title: '赛博朋克 Logo', desc: '说出品牌名，AI 生成赛博朋克风格的 Logo——独此一颗。', tags: ['AI生成','多风格','高清'], likes:'876' },
-  { icon: '📖', title: '童年故事绘本', desc: '把孩子的童年趣事变成图文绘本，让成长的星光永不熄灭。', tags: ['故事','插画','可打印'], likes:'1.8k' },
-  { icon: '🌅', title: '旅行回忆视频', desc: '把旅行的照片和视频，剪成一支有节奏、有字幕的回忆星轨。', tags: ['智能剪辑','卡点','字幕'], likes:'1.3k' },
-  { icon: '🎵', title: '专属告白歌曲页', desc: '告白写进会播歌、会飘花瓣的网页——TA 会记住这一刻。', tags: ['音乐','花瓣','文案'], likes:'2.6k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 L28 34 M44 26 L36 34 M32 40 L32 44"/><path d="M26 46 C28 50 36 50 38 46"/></svg>', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一颗可以一直发光的星。', tags: ['照片墙','时间轴','音乐'], likes:'1.2k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 C24 20 40 20 44 26"/><path d="M20 26 L22 46 L42 46 L44 26"/><path d="M26 26 L26 22 M38 26 L38 22"/></svg>', title: '妈妈的生日 H5', desc: '为妈妈点亮一颗生日星——她的照片、你写的话、全家福缓缓转动。', tags: ['动态贺卡','全家福','祝福弹幕'], likes:'982' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 40 L20 44 L24 44 M28 32 C36 24 44 20 48 24 C52 28 46 38 38 44"/><path d="M30 34 L32 32"/></svg>', title: '手写情书生成器', desc: '把心里话变成一封有温度的手写体情书，可打印、可保存。', tags: ['手写字体','信纸','打印'], likes:'1.5k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="25" cy="30" r="4"/><path d="M15 44 C15 36 22 32 32 32 C42 32 49 36 49 44"/><path d="M32 12 L34 16 L30 16 Z"/></svg>', title: '我家猫的专属主页', desc: '为毛孩子建一颗星：照片、日常、萌点，分享给朋友一起云吸猫。', tags: ['萌宠','日常','分享'], likes:'2.1k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M32 14 L35 26 L47 26 L37.5 34 L41 46 L32 39 L23 46 L26.5 34 L17 26 L29 26 Z"/><circle cx="32" cy="31" r="2" fill="#c8a86e" stroke="none"/></svg>', title: '赛博朋克 Logo', desc: '说出品牌名，AI 生成赛博朋克风格的 Logo——独此一颗。', tags: ['AI生成','多风格','高清'], likes:'876' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M22 24 L30 32 L22 40"/><path d="M36 24 L44 32 L36 40"/></svg>', title: '童年故事绘本', desc: '把孩子的童年趣事变成图文绘本，让成长的星光永不熄灭。', tags: ['故事','插画','可打印'], likes:'1.8k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M18 40 L18 26 L44 26 L44 40"/><path d="M14 40 L50 40"/><path d="M24 40 L24 44 L40 44 L40 40"/></svg>', title: '旅行回忆视频', desc: '把旅行的照片和视频，剪成一支有节奏、有字幕的回忆星轨。', tags: ['智能剪辑','卡点','字幕'], likes:'1.3k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="26" cy="32" r="3"/><circle cx="38" cy="32" r="3"/><path d="M20 38 C26 44 38 44 44 38"/></svg>', title: '专属告白歌曲页', desc: '告白写进会播歌、会飘花瓣的网页——TA 会记住这一刻。', tags: ['音乐','花瓣','文案'], likes:'2.6k' },
 ];
 
 const starList = document.getElementById('starList');
@@ -394,7 +429,7 @@ function renderStars() {
     const el = document.createElement('div');
     el.className = 'star';
     el.innerHTML = `
-      <div class="star__orb">${s.icon}</div>
+      <div class="star__orb">${s.svg}</div>
       <div class="star__body">
         <div class="star__title">${s.title}</div>
         <div class="star__desc">${s.desc}</div>
