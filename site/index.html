@@ -3,760 +3,467 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YCGEE 云川集 · 把你的想法变成现实</title>
-<meta name="description" content="YCGEE 云川集——普通人的想象力乌托邦。说出你的想法，AI 与创作者帮你把它变成现实。惊喜工坊 · 作品广场 · 创意集市">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>YCGEE 云川集 · 你的想法是一颗星辰</title>
+<meta name="description" content="YCGEE 云川集——普通人的想象力乌托邦。说出你的想法，让它像星辰一样诞生、发光、被看见。惊喜工坊 · 作品广场 · 创意集市">
 <style>
 /* ========================================
-   YCGEE 云川集 · 首页 v3
-   设计系统：Linear（深色原生 + 星光感）
-   - 近黑画布 #08090a，内容从黑暗中浮现
-   - 半透明白边框 rgba(255,255,255,.05)
-   - 品牌靛蓝紫 #5e6ad2（唯一强调色）
-   - Inter 字体 + 负字距 + 510 字重签名感
-   - 无阴影，靠明度层级
+   YCGEE 云川集 · v4 「想法星云」
+   概念：每个想法/作品是一颗星体，输入想法=新星诞生
+   创新：滚动穿越星云、星体脉动呼吸、鼠标视差
    ======================================== */
-
-:root {
-  --bg-marketing: #08090a;
-  --bg-panel: #0f1011;
-  --surface-1: #191a1b;
-  --surface-2: #28282c;
-  --text-1: #f7f8f8;
-  --text-2: #d0d6e0;
-  --text-3: #8a8f98;
-  --text-4: #62666d;
-  --brand: #5e6ad2;
-  --brand-hover: #828fff;
-  --border-subtle: rgba(255,255,255,0.05);
-  --border-standard: rgba(255,255,255,0.08);
-  --green: #27a644;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
-    'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: var(--bg-marketing);
-  color: var(--text-1);
-  -webkit-font-smoothing: antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  background: #05060a;              /* 深空 */
+  color: #f2f3f7;
   overflow-x: hidden;
-  letter-spacing: -0.15px;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ---- 粒子背景（星光感） ---- */
-#particles {
+/* ---- 宇宙画布（全屏星空） ---- */
+#universe {
   position: fixed; inset: 0;
   z-index: 0;
-  pointer-events: none;
-  opacity: .6;
+  display: block;
 }
 
-/* ---- 毛玻璃导航 ---- */
+/* ---- 导航（悬浮于星空中） ---- */
 .nav {
-  position: fixed; top: 0; left: 0; right: 0;
+  position: fixed; top:0; left:0; right:0;
   z-index: 100;
-  height: 52px;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 48px;
-  background: rgba(8, 9, 10, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--border-subtle);
+  height: 56px;
+  display: flex; align-items:center; justify-content:space-between;
+  padding: 0 40px;
+  background: linear-gradient(to bottom, rgba(5,6,10,.85), transparent);
 }
-
 .nav__brand {
-  font-size: 15px; font-weight: 600;
-  letter-spacing: 1.5px;
-  color: var(--text-1);
-  text-decoration: none;
-  display: flex; align-items: center; gap: 10px;
+  font-size:16px; font-weight:700; letter-spacing:3px;
+  color:#f2f3f7; text-decoration:none;
+  display:flex; align-items:center; gap:10px;
 }
-.nav__brand .brand-zh {
-  font-size: 12px; font-weight: 400;
-  color: var(--text-3);
-  letter-spacing: 2px;
-  padding-left: 10px;
-  border-left: 1px solid var(--border-standard);
-}
-
-.nav__links { display: flex; gap: 32px; align-items: center; }
-.nav__link {
-  font-size: 13px; font-weight: 500;
-  color: var(--text-2);
-  text-decoration: none;
-  transition: color .2s;
-}
-.nav__link:hover { color: var(--text-1); }
-
+.nav__brand .zh { font-size:12px; font-weight:400; color:#7a7f8f; letter-spacing:3px; }
+.nav__links { display:flex; gap:28px; align-items:center; }
+.nav__link { font-size:13px; color:#9aa0b5; text-decoration:none; letter-spacing:1px; transition:color .2s; }
+.nav__link:hover { color:#f2f3f7; }
 .nav__cta {
-  font-size: 13px; font-weight: 500;
-  color: #fff;
-  background: var(--brand);
-  border: none;
-  border-radius: 6px;
-  padding: 8px 18px;
-  cursor: pointer;
-  transition: background .2s;
+  font-size:13px; font-weight:600;
+  color:#05060a; background:#c8a86e;   /* 星光金 */
+  border:none; border-radius:100px; padding:9px 22px; cursor:pointer;
+  transition:transform .2s, box-shadow .2s;
 }
-.nav__cta:hover { background: var(--brand-hover); }
+.nav__cta:hover { transform:translateY(-1px); box-shadow:0 8px 30px rgba(200,168,110,.35); }
 
-/* ---- Hero ---- */
+/* ---- Hero（星空中的文字） ---- */
 .hero {
-  min-height: 100vh;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 120px 24px 40px;
-  position: relative;
-  z-index: 1;
+  position:relative; z-index:2;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:120px 20px 60px;
+  text-align:center;
 }
-
 .hero__eyebrow {
-  font-size: 11px; font-weight: 500;
-  color: var(--text-4);
-  letter-spacing: 4px; text-transform: uppercase;
-  margin-bottom: 24px;
-  animation: fadeUp .8s ease both;
+  font-size:11px; letter-spacing:8px; text-transform:uppercase;
+  color:#6a7085; margin-bottom:28px;
+  animation:floatIn 1s ease both;
 }
-
 .hero__title {
-  font-size: clamp(42px, 7vw, 72px);
-  font-weight: 510;
-  letter-spacing: -1.5px;
-  line-height: 1.02;
-  text-align: center;
-  max-width: 960px;
-  animation: fadeUp .8s .1s ease both;
+  font-size:clamp(40px, 7.5vw, 80px);
+  font-weight:600; letter-spacing:-2px; line-height:1.05;
+  background: linear-gradient(180deg, #ffffff 30%, #9aa0b5 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  animation:floatIn 1s .1s ease both;
 }
-
-.hero__title .light {
-  font-weight: 400;
-  color: var(--text-2);
-}
-
 .hero__sub {
-  font-size: clamp(16px, 2.2vw, 18px);
-  font-weight: 400;
-  color: var(--text-3);
-  margin-top: 20px;
-  text-align: center;
-  letter-spacing: 0.2px;
-  animation: fadeUp .8s .2s ease both;
+  font-size:clamp(15px, 2vw, 18px);
+  color:#8a90a5; margin-top:22px; letter-spacing:2px;
+  animation:floatIn 1s .2s ease both;
 }
 
-/* ---- 大输入框（Linear 风格） ---- */
-.idea-box {
-  width: 100%; max-width: 680px;
-  margin-top: 48px;
-  position: relative;
-  animation: fadeUp .8s .3s ease both;
+/* ---- 想法输入（星门） ---- */
+.gate {
+  width:100%; max-width:640px;
+  margin-top:52px; position:relative;
+  animation:floatIn 1s .3s ease both;
+}
+.gate__input {
+  width:100%;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:22px 28px;
+  font-size:16px; color:#f2f3f7; outline:none;
+  font-family:inherit; letter-spacing:.5px;
+  backdrop-filter:blur(10px);
+  transition:border-color .3s, background .3s, box-shadow .3s;
+}
+.gate__input::placeholder { color:#5d6378; }
+.gate__input:focus {
+  border-color:rgba(200,168,110,.6);
+  background:rgba(255,255,255,.06);
+  box-shadow:0 0 40px rgba(200,168,110,.15);
+}
+.gate__btn {
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  background:linear-gradient(135deg, #e0c284, #b8925a);
+  color:#05060a; border:none; border-radius:10px;
+  padding:13px 24px; font-size:14px; font-weight:600;
+  cursor:pointer; font-family:inherit; letter-spacing:2px;
+  transition:transform .2s, box-shadow .2s;
+}
+.gate__btn:hover { transform:translateY(-50%) scale(1.04); box-shadow:0 8px 30px rgba(200,168,110,.4); }
+.gate__hint { margin-top:16px; font-size:12px; color:#5d6378; letter-spacing:1px; }
+
+/* ---- 星云区（滚动穿越） ---- */
+.nebula {
+  position:relative; z-index:2;
+  max-width:1100px; margin:80px auto 0; padding:0 24px;
+}
+.nebula__label {
+  text-align:center; font-size:11px; letter-spacing:8px;
+  text-transform:uppercase; color:#6a7085; margin-bottom:60px;
+}
+.nebula__list { display:flex; flex-direction:column; gap:80px; }
+
+/* 一颗星体（作品） */
+.star {
+  display:flex; align-items:center; gap:40px;
+  opacity:0; transform:scale(.92) translateY(40px);
+  transition:opacity .9s ease, transform .9s ease;
+}
+.star.in-view { opacity:1; transform:scale(1) translateY(0); }
+
+.star__orb {
+  flex-shrink:0;
+  width:170px; height:170px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:60px;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.15), rgba(255,255,255,.02) 60%);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 0 60px rgba(200,168,110,.15),
+    inset 0 0 30px rgba(255,255,255,.03);
+  animation:orbitPulse 4s ease-in-out infinite;
 }
 
-.idea-box__input {
-  width: 100%;
-  background: var(--surface-1);
-  border: 1px solid var(--border-standard);
-  border-radius: 8px;
-  padding: 20px 26px;
-  font-size: 16px; font-weight: 400;
-  color: var(--text-1);
-  outline: none;
-  font-family: inherit;
-  letter-spacing: -0.1px;
-  transition: border-color .2s, background .2s;
+.star__body { flex:1; }
+.star__title {
+  font-size:24px; font-weight:600; letter-spacing:-.5px;
+  color:#f2f3f7;
 }
-.idea-box__input::placeholder { color: var(--text-4); }
-.idea-box__input:focus {
-  background: var(--surface-2);
-  border-color: var(--brand);
+.star__desc { font-size:15px; color:#8a90a5; margin-top:10px; line-height:1.7; letter-spacing:.3px; }
+.star__tags { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+.star__tag {
+  font-size:11px; color:#9aa0b5;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:100px; padding:3px 12px; letter-spacing:.5px;
 }
+.star__meta { flex-shrink:0; font-size:13px; color:#6a7085; text-align:right; }
 
-.idea-box__btn {
-  position: absolute; right: 6px; top: 50%;
-  transform: translateY(-50%);
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 12px 22px;
-  font-size: 14px; font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background .2s;
+/* ---- 栏目（星域） ---- */
+.regions {
+  position:relative; z-index:2;
+  max-width:1100px; margin:120px auto 0; padding:0 24px;
 }
-.idea-box__btn:hover { background: var(--brand-hover); }
-
-.idea-box__hint {
-  text-align: center;
-  font-size: 12px; color: var(--text-4);
-  margin-top: 16px;
-  letter-spacing: 1px;
+.regions__grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:44px; }
+.region {
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px; padding:36px 28px; cursor:pointer;
+  backdrop-filter:blur(8px);
+  transition:transform .3s, background .3s, border-color .3s;
 }
-
-/* ---- 作品区：竖向滚动，模糊→清晰 ---- */
-.works {
-  width: 100%;
-  max-width: 920px;
-  margin: 110px auto 0;
-  padding: 0 24px;
-  position: relative;
-  z-index: 1;
-}
-
-.works__label {
-  text-align: center;
-  font-size: 11px; color: var(--text-4);
-  letter-spacing: 4px; text-transform: uppercase;
-  margin-bottom: 48px;
-}
-
-.works__list {
-  display: flex; flex-direction: column;
-  gap: 16px;
-}
-
-.work-item {
-  display: flex; gap: 28px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 28px;
-  align-items: center;
-  cursor: pointer;
-  opacity: 0;
-  filter: blur(14px);
-  transform: translateY(24px);
-  transition: opacity .7s ease, filter .7s ease, transform .7s ease,
-              background .2s, border-color .2s;
-}
-.work-item.in-view {
-  opacity: 1;
-  filter: blur(0);
-  transform: translateY(0);
-}
-.work-item:hover {
-  background: var(--surface-1);
-  border-color: var(--border-standard);
-}
-
-.work-item__thumb {
-  flex-shrink: 0;
-  width: 160px; height: 120px;
-  border-radius: 8px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 48px;
-}
-
-.work-item__body { flex: 1; }
-.work-item__title {
-  font-size: 20px; font-weight: 590;
-  letter-spacing: -0.3px;
-  color: var(--text-1);
-}
-.work-item__desc {
-  font-size: 14px; font-weight: 400;
-  color: var(--text-3);
-  margin-top: 8px;
-  line-height: 1.6;
-  letter-spacing: -0.1px;
-}
-
-.work-item__highlights {
-  display: flex; gap: 8px;
-  margin-top: 12px; flex-wrap: wrap;
-}
-.work-item__tag {
-  font-size: 11px; font-weight: 500;
-  color: var(--text-2);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border-subtle);
-  border-radius: 100px;
-  padding: 3px 12px;
-  letter-spacing: .3px;
-}
-
-.work-item__meta {
-  flex-shrink: 0;
-  text-align: right;
-  font-size: 12px; color: var(--text-4);
-}
-
-/* ---- 栏目 ---- */
-.sections {
-  max-width: 1100px;
-  margin: 110px auto 0;
-  padding: 0 24px;
-  position: relative;
-  z-index: 1;
-}
-
-.sections__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-top: 44px;
-}
-
-.section-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 32px 28px;
-  cursor: pointer;
-  transition: background .2s, border-color .2s, transform .2s;
-}
-.section-card:hover {
-  background: var(--surface-1);
-  border-color: var(--border-standard);
-  transform: translateY(-2px);
-}
-
-.section-card__icon { font-size: 34px; }
-.section-card__title {
-  font-size: 19px; font-weight: 590;
-  letter-spacing: -0.3px;
-  margin-top: 14px;
-  color: var(--text-1);
-}
-.section-card__desc {
-  font-size: 14px; font-weight: 400;
-  color: var(--text-3);
-  margin-top: 10px;
-  line-height: 1.6;
-}
-.section-card__link {
-  display: inline-block;
-  margin-top: 14px;
-  font-size: 14px; font-weight: 500;
-  color: var(--brand-hover);
-  text-decoration: none;
-}
-.section-card__link:hover { text-decoration: underline; }
+.region:hover { transform:translateY(-4px); background:rgba(255,255,255,.05); border-color:rgba(200,168,110,.3); }
+.region__icon { font-size:34px; }
+.region__title { font-size:19px; font-weight:600; margin-top:14px; color:#f2f3f7; }
+.region__desc { font-size:14px; color:#8a90a5; margin-top:10px; line-height:1.6; }
+.region__link { display:inline-block; margin-top:14px; font-size:14px; color:#d4b97f; text-decoration:none; }
 
 /* ---- 页脚 ---- */
 .footer {
-  margin-top: 110px;
-  padding: 44px 24px;
-  border-top: 1px solid var(--border-subtle);
-  text-align: center;
-  font-size: 12px; color: var(--text-4);
-  letter-spacing: 1px;
-  position: relative;
-  z-index: 1;
+  position:relative; z-index:2;
+  margin-top:120px; padding:44px 20px;
+  border-top:1px solid rgba(255,255,255,.06);
+  text-align:center; font-size:12px; color:#5d6378; letter-spacing:2px;
 }
 
-/* ---- 解压气泡等待彩蛋（适配深色） ---- */
+/* ---- 解压彩蛋（星尘气泡） ---- */
 .zen-overlay {
-  position: fixed; inset: 0;
-  z-index: 200;
-  background: rgba(8,9,10,.94);
-  backdrop-filter: blur(8px);
-  display: none;
-  overflow: hidden;
-  cursor: pointer;
+  position:fixed; inset:0; z-index:200;
+  background:rgba(5,6,10,.95);
+  display:none; overflow:hidden; cursor:pointer;
 }
-.zen-overlay.active { display: block; }
-
-.zen-hint {
-  position: absolute;
-  top: 20%; left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 5;
-  pointer-events: none;
-}
-.zen-hint__main {
-  font-size: 22px; font-weight: 600;
-  letter-spacing: -0.4px;
-  color: var(--text-1);
-}
-.zen-hint__sub {
-  font-size: 13px; color: var(--text-3);
-  margin-top: 10px; letter-spacing: 1px;
-}
-.zen-hint__progress {
-  margin-top: 16px;
-  font-size: 12px; color: var(--brand-hover);
-  letter-spacing: 2px;
-}
+.zen-overlay.active { display:block; }
+.zen-hint { position:absolute; top:18%; left:50%; transform:translateX(-50%); text-align:center; z-index:5; pointer-events:none; }
+.zen-hint__main { font-size:24px; font-weight:600; color:#f2f3f7; letter-spacing:1px; }
+.zen-hint__sub { font-size:13px; color:#8a90a5; margin-top:10px; letter-spacing:1px; }
+.zen-hint__progress { margin-top:16px; font-size:12px; color:#d4b97f; letter-spacing:2px; }
 
 .zen-bubble {
-  position: absolute;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  user-select: none;
-  opacity: 0;
-  animation: bubbleRise 5s ease-in infinite;
-  will-change: transform, opacity;
+  position:absolute; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; user-select:none; opacity:0;
+  animation:bubbleRise 5s ease-in infinite;
 }
-.zen-bubble:hover { transform: scale(1.12); }
-.zen-bubble__text {
-  font-size: 12px; font-weight: 600;
-  letter-spacing: 1px;
-  text-align: center;
-  line-height: 1.3;
-}
-
+.zen-bubble__text { font-size:12px; font-weight:600; letter-spacing:1px; }
 @keyframes bubbleRise {
-  0%   { transform: translateY(30px); opacity: 0; }
-  15%  { opacity: 1; }
-  80%  { opacity: 1; }
-  100% { transform: translateY(-60px); opacity: 0; }
+  0%{transform:translateY(30px);opacity:0;} 15%{opacity:1;} 80%{opacity:1;} 100%{transform:translateY(-60px);opacity:0;}
 }
-
 .zen-burst {
-  position: fixed; z-index: 210;
-  font-size: 32px; font-weight: 700;
-  letter-spacing: 2px;
-  pointer-events: none;
-  animation: burstPop 1.4s ease-out forwards;
-  white-space: nowrap;
+  position:fixed; z-index:210; font-size:32px; font-weight:700;
+  letter-spacing:2px; pointer-events:none;
+  animation:burstPop 1.4s ease-out forwards; white-space:nowrap;
 }
 @keyframes burstPop {
-  0%   { transform: scale(.3); opacity: 0; }
-  20%  { transform: scale(1.15); opacity: 1; }
-  40%  { transform: scale(1); }
-  100% { transform: translateY(-90px) scale(1.05); opacity: 0; }
+  0%{transform:scale(.3);opacity:0;} 20%{transform:scale(1.15);opacity:1;} 40%{transform:scale(1);} 100%{transform:translateY(-90px) scale(1.05);opacity:0;}
 }
-
 .zen-particle {
-  position: fixed; z-index: 209;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: particleFly 0.8s ease-out forwards;
+  position:fixed; z-index:209; width:6px; height:6px; border-radius:50%;
+  pointer-events:none; animation:particleFly .8s ease-out forwards;
 }
 @keyframes particleFly {
-  0%   { transform: translate(0,0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  0%{transform:translate(0,0) scale(1);opacity:1;} 100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0;}
 }
 
-/* ---- 动效 ---- */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ---- 星体脉动 ---- */
+@keyframes orbitPulse {
+  0%,100%{ box-shadow:0 0 50px rgba(200,168,110,.12), inset 0 0 30px rgba(255,255,255,.03); }
+  50%{ box-shadow:0 0 90px rgba(200,168,110,.28), inset 0 0 40px rgba(255,255,255,.05); }
+}
+
+@keyframes floatIn {
+  from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);}
 }
 
 /* ---- 响应式 ---- */
-@media (max-width: 1024px) { .nav { padding: 0 24px; } }
-@media (max-width: 834px) {
-  .sections__grid { grid-template-columns: 1fr; }
-  .nav__links .nav__link { display: none; }
-  .hero__title { font-size: 42px; letter-spacing: -0.8px; }
-  .work-item { flex-direction: column; align-items: flex-start; }
-  .work-item__thumb { width: 100%; height: 170px; }
-  .work-item__meta { text-align: left; }
-}
-@media (max-width: 320px) {
-  .idea-box__btn { position: static; transform: none; width: 100%; margin-top: 10px; }
+@media(max-width:834px){
+  .star{flex-direction:column;text-align:center;gap:24px;}
+  .star__meta{text-align:center;}
+  .regions__grid{grid-template-columns:1fr;}
+  .nav__links .nav__link{display:none;}
+  .gate__btn{position:static;transform:none;width:100%;margin-top:12px;}
 }
 </style>
 </head>
 <body>
 
-<!-- 粒子背景（星光） -->
-<canvas id="particles" aria-hidden="true"></canvas>
+<canvas id="universe"></canvas>
 
-<!-- 导航 -->
 <nav class="nav">
-  <a class="nav__brand" href="/">YCGEE<span class="brand-zh">云川集</span></a>
+  <a class="nav__brand" href="/">YCGEE<span class="zh">云川集</span></a>
   <div class="nav__links">
-    <a class="nav__link" href="#works">作品</a>
-    <a class="nav__link" href="#sections">工坊</a>
-    <a class="nav__link" href="#sections">集市</a>
+    <a class="nav__link" href="#nebula">星云</a>
+    <a class="nav__link" href="#regions">星域</a>
     <button class="nav__cta">开始创作</button>
   </div>
 </nav>
 
-<!-- Hero -->
+<!-- Hero：星空中的召唤 -->
 <section class="hero">
   <div class="hero__eyebrow">你的想象力乌托邦</div>
-  <h1 class="hero__title">
-    说出你的想法<br>
-    <span class="light">让它变成现实</span>
-  </h1>
-  <p class="hero__sub">AI 与创作者，为每一个普通人实现想象</p>
+  <h1 class="hero__title">你的想法<br>是一颗星辰</h1>
+  <p class="hero__sub">说出来，让它诞生、发光、被看见</p>
 
-  <div class="idea-box">
-    <input class="idea-box__input" type="text" placeholder="说出你的想法… 例如：给妈妈做一个生日纪念视频" autocomplete="off">
-    <button class="idea-box__btn">生成</button>
-    <div class="idea-box__hint">免费体验 3 次 · 无需任何技术</div>
+  <div class="gate">
+    <input class="gate__input" type="text" placeholder="说出你的想法… 例如：给妈妈做一个生日纪念视频" autocomplete="off">
+    <button class="gate__btn">点亮</button>
+    <div class="gate__hint">免费体验 3 次 · 每个想法都是一颗新星</div>
   </div>
 
-  <div class="works" id="works">
-    <div class="works__label">来自创作者的想象力</div>
-    <div class="works__list" id="workList"></div>
+  <!-- 星云区：滚动穿越 -->
+  <div class="nebula" id="nebula">
+    <div class="nebula__label">星云中的想象力</div>
+    <div class="nebula__list" id="starList"></div>
   </div>
 </section>
 
-<!-- 栏目 -->
-<section class="sections" id="sections">
-  <div class="sections__grid">
-    <div class="section-card">
-      <div class="section-card__icon">🎁</div>
-      <div class="section-card__title">惊喜工坊</div>
-      <div class="section-card__desc">生日 · 表白 · 纪念日——给重要的人一份独一无二的惊喜。</div>
-      <a class="section-card__link" href="#">了解更多 ›</a>
+<!-- 星域 -->
+<section class="regions" id="regions">
+  <div class="regions__grid">
+    <div class="region">
+      <div class="region__icon">🎁</div>
+      <div class="region__title">惊喜工坊</div>
+      <div class="region__desc">生日 · 表白 · 纪念日——给重要的人一份独一无二的惊喜。</div>
+      <a class="region__link" href="#">进入星域 ›</a>
     </div>
-    <div class="section-card">
-      <div class="section-card__icon">🖼</div>
-      <div class="section-card__title">作品广场</div>
-      <div class="section-card__desc">创作者的想象力成品，浏览、点赞、一键同款。</div>
-      <a class="section-card__link" href="#">了解更多 ›</a>
+    <div class="region">
+      <div class="region__icon">🖼</div>
+      <div class="region__title">作品广场</div>
+      <div class="region__desc">创作者的想象力成品，浏览、点赞、一键同款。</div>
+      <a class="region__link" href="#">进入星域 ›</a>
     </div>
-    <div class="section-card">
-      <div class="section-card__icon">🤝</div>
-      <div class="section-card__title">创意集市</div>
-      <div class="section-card__desc">有需求？发出来。有能力？接下单。互动即收益。</div>
-      <a class="section-card__link" href="#">了解更多 ›</a>
+    <div class="region">
+      <div class="region__icon">🤝</div>
+      <div class="region__title">创意集市</div>
+      <div class="region__desc">有需求？发出来。有能力？接下单。互动即收益。</div>
+      <a class="region__link" href="#">进入星域 ›</a>
     </div>
   </div>
 </section>
 
-<footer class="footer">YCGEE · 云川集 · 让想象力被看见、被实现、被珍视</footer>
+<footer class="footer">YCGEE · 云川集 · 让每颗想法都成为星辰</footer>
 
-<!-- 解压气泡等待层 -->
 <div class="zen-overlay" id="zenOverlay">
   <div class="zen-hint">
-    <div class="zen-hint__main">正在为你创作 ✨</div>
-    <div class="zen-hint__sub">等待的时候，点一点气泡，沾沾喜气</div>
-    <div class="zen-hint__progress" id="zenProgress">点点气泡，把好运气带回家</div>
+    <div class="zen-hint__main">正在点亮你的星辰 ✨</div>
+    <div class="zen-hint__sub">等待的时候，点一点星尘，沾沾喜气</div>
+    <div class="zen-hint__progress" id="zenProgress">点点星尘，把好运气带回家</div>
   </div>
 </div>
 
 <script>
-/* ---- 粒子背景（星光） ---- */
-const particleCanvas = document.getElementById('particles');
-const pctx = particleCanvas.getContext('2d');
-let particles = [];
-let pW = 0, pH = 0;
+/* ========================================
+   宇宙画布：星空 + 星体 + 鼠标视差
+   ======================================== */
+const cv = document.getElementById('universe');
+const ctx = cv.getContext('2d');
+let W, H, stars = [], mouseX = 0, mouseY = 0;
 
-function resizeParticles() {
-  pW = particleCanvas.width = window.innerWidth;
-  pH = particleCanvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeParticles);
-resizeParticles();
-
-function initParticles() {
-  const count = Math.min(80, Math.floor(pW / 20));
-  particles = [];
+function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; initStars(); }
+function initStars() {
+  stars = [];
+  const count = Math.min(160, Math.floor(W * H / 9000));
   for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * pW,
-      y: Math.random() * pH,
-      r: Math.random() * 1.8 + 0.4,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      a: Math.random() * 0.4 + 0.1,
-      twinkle: Math.random() * Math.PI * 2,
+    stars.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.6 + 0.3,
+      tw: Math.random() * Math.PI * 2,
+      sp: 0.5 + Math.random() * 1.2,   // 闪烁速度
+      layer: Math.random() * 0.5 + 0.2, // 视差层
     });
   }
 }
-initParticles();
+window.addEventListener('resize', resize);
+resize();
+window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
 
-function drawParticles(t) {
-  pctx.clearRect(0, 0, pW, pH);
-  particles.forEach(p => {
-    p.x += p.vx; p.y += p.vy;
-    if (p.x < 0) p.x = pW; if (p.x > pW) p.x = 0;
-    if (p.y < 0) p.y = pH; if (p.y > pH) p.y = 0;
-    // 闪烁效果
-    const tw = 0.55 + 0.45 * Math.sin(t / 800 + p.twinkle);
-    pctx.beginPath();
-    pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    pctx.fillStyle = `rgba(247, 248, 248, ${p.a * tw})`;
-    pctx.fill();
+let t = 0;
+function drawUniverse() {
+  t++;
+  ctx.clearRect(0, 0, W, H);
+  // 星空（带视差）
+  stars.forEach(s => {
+    const px = s.x - mouseX * s.layer * 0.02;
+    const py = s.y - mouseY * s.layer * 0.02;
+    const alpha = 0.35 + 0.5 * Math.abs(Math.sin(t / (1000 / s.sp) + s.tw));
+    ctx.beginPath();
+    ctx.arc(px, py, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(220, 225, 240, ${alpha})`;
+    ctx.fill();
   });
-  requestAnimationFrame(drawParticles);
+  // 少量金色星（点缀）
+  for (let i = 0; i < 12; i++) {
+    const sx = (i * 137.5) % W;
+    const sy = (i * 61.8) % H;
+    const alpha = 0.3 + 0.4 * Math.sin(t / 600 + i);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200, 168, 110, ${alpha})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(drawUniverse);
 }
-requestAnimationFrame(drawParticles);
+requestAnimationFrame(drawUniverse);
 
-/* ---- 作品数据 ---- */
-const works = [
-  { icon: '💌', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一个可以一直打开的专属网页。', highlights: ['照片墙', '纪念时间轴', '背景音乐'], likes: '1.2k' },
-  { icon: '🎂', title: '妈妈的生日 H5', desc: '为妈妈生成一个会动的生日贺卡——她的照片、你写的话、还有全家福滚动播放。', highlights: ['动态贺卡', '全家福相册', '祝福弹幕'], likes: '982' },
-  { icon: '🖋', title: '手写情书生成器', desc: '把你的心里话变成一封有温度的手写体情书，可打印、可保存、可发送。', highlights: ['手写字体', '信纸模板', '一键打印'], likes: '1.5k' },
-  { icon: '🐱', title: '我家猫的专属主页', desc: '为毛孩子做一个专属主页：照片、日常、萌点标签，分享给朋友一起云吸猫。', highlights: ['萌宠主页', '日常记录', '一键分享'], likes: '2.1k' },
-  { icon: '🎨', title: '赛博朋克 Logo 定制', desc: '说出你的品牌名，AI 生成赛博朋克风格的 Logo——独一无二，随时可商用。', highlights: ['AI 生成', '多种风格', '高清下载'], likes: '876' },
-  { icon: '📖', title: '童年故事绘本', desc: '把孩子的童年趣事变成一本图文并茂的电子绘本，留住成长瞬间。', highlights: ['故事生成', '插画配图', '可打印成册'], likes: '1.8k' },
-  { icon: '🌅', title: '旅行回忆视频', desc: '把旅行的照片和视频，自动剪辑成一支有节奏、有字幕的回忆影片。', highlights: ['智能剪辑', '卡点配乐', '自动字幕'], likes: '1.3k' },
-  { icon: '🎵', title: '专属告白歌曲页', desc: '把你的告白写进一个会播放歌曲、会飘落花瓣的网页——TA 一定会记住这一刻。', highlights: ['背景音乐', '花瓣特效', '心意文案'], likes: '2.6k' },
+/* ---- 星体数据（作品 = 星） ---- */
+const stars_data = [
+  { icon: '💌', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一颗可以一直发光的星。', tags: ['照片墙','时间轴','音乐'], likes:'1.2k' },
+  { icon: '🎂', title: '妈妈的生日 H5', desc: '为妈妈点亮一颗生日星——她的照片、你写的话、全家福缓缓转动。', tags: ['动态贺卡','全家福','祝福弹幕'], likes:'982' },
+  { icon: '🖋', title: '手写情书生成器', desc: '把心里话变成一封有温度的手写体情书，可打印、可保存。', tags: ['手写字体','信纸','打印'], likes:'1.5k' },
+  { icon: '🐱', title: '我家猫的专属主页', desc: '为毛孩子建一颗星：照片、日常、萌点，分享给朋友一起云吸猫。', tags: ['萌宠','日常','分享'], likes:'2.1k' },
+  { icon: '🎨', title: '赛博朋克 Logo', desc: '说出品牌名，AI 生成赛博朋克风格的 Logo——独此一颗。', tags: ['AI生成','多风格','高清'], likes:'876' },
+  { icon: '📖', title: '童年故事绘本', desc: '把孩子的童年趣事变成图文绘本，让成长的星光永不熄灭。', tags: ['故事','插画','可打印'], likes:'1.8k' },
+  { icon: '🌅', title: '旅行回忆视频', desc: '把旅行的照片和视频，剪成一支有节奏、有字幕的回忆星轨。', tags: ['智能剪辑','卡点','字幕'], likes:'1.3k' },
+  { icon: '🎵', title: '专属告白歌曲页', desc: '告白写进会播歌、会飘花瓣的网页——TA 会记住这一刻。', tags: ['音乐','花瓣','文案'], likes:'2.6k' },
 ];
 
-const workList = document.getElementById('workList');
-
-function renderWorks() {
-  works.forEach(w => {
-    const item = document.createElement('div');
-    item.className = 'work-item';
-    item.innerHTML = `
-      <div class="work-item__thumb">${w.icon}</div>
-      <div class="work-item__body">
-        <div class="work-item__title">${w.title}</div>
-        <div class="work-item__desc">${w.desc}</div>
-        <div class="work-item__highlights">
-          ${w.highlights.map(h => `<span class="work-item__tag">${h}</span>`).join('')}
-        </div>
+const starList = document.getElementById('starList');
+function renderStars() {
+  stars_data.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'star';
+    el.innerHTML = `
+      <div class="star__orb">${s.icon}</div>
+      <div class="star__body">
+        <div class="star__title">${s.title}</div>
+        <div class="star__desc">${s.desc}</div>
+        <div class="star__tags">${s.tags.map(t=>`<span class="star__tag">${t}</span>`).join('')}</div>
       </div>
-      <div class="work-item__meta">♥ ${w.likes}</div>`;
-    workList.appendChild(item);
+      <div class="star__meta">♥ ${s.likes}</div>`;
+    starList.appendChild(el);
   });
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view');
-        observer.unobserve(entry.target);
-      }
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) { en.target.classList.add('in-view'); obs.unobserve(en.target); }
     });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-
-  document.querySelectorAll('.work-item').forEach(el => observer.observe(el));
+  }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+  document.querySelectorAll('.star').forEach(el => obs.observe(el));
 }
-renderWorks();
+renderStars();
 
-/* ---- 解压气泡等待彩蛋 ---- */
+/* ---- 解压彩蛋（星尘气泡） ---- */
 const zenOverlay = document.getElementById('zenOverlay');
 const zenProgress = document.getElementById('zenProgress');
-
-const AUSPICIOUS = [
-  '恭喜发财', '身体健康', '万事如意', '心想事成', '好运连连',
-  '平安喜乐', '财源广进', '步步高升', '福气满满', '岁岁平安',
-  '天天开心', '梦想成真', '顺顺利利', '幸福美满', '龙马精神',
-  '喜气洋洋', '学业有成', '事业腾飞'
+const AUSPICIOUS = ['恭喜发财','身体健康','万事如意','心想事成','好运连连','平安喜乐','财源广进','步步高升','福气满满','岁岁平安','天天开心','梦想成真','顺顺利利','幸福美满','喜气洋洋','学业有成','事业腾飞'];
+const BUBBLES = [
+  { bg:'rgba(255,255,255,.05)', br:'rgba(255,255,255,.12)', tx:'#f2f3f7', w:'福' },
+  { bg:'rgba(255,255,255,.04)', br:'rgba(255,255,255,.10)', tx:'#c8cfe0', w:'喜' },
+  { bg:'rgba(200,168,110,.10)', br:'rgba(200,168,110,.3)', tx:'#e0c284', w:'吉' },
+  { bg:'rgba(255,255,255,.05)', br:'rgba(255,255,255,.10)', tx:'#f2f3f7', w:'乐' },
+  { bg:'rgba(200,168,110,.07)', br:'rgba(200,168,110,.22)', tx:'#d4b97f', w:'顺' },
 ];
-
-const BUBBLE_STYLES = [
-  { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', text: '#f7f8f8', word: '福' },
-  { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', text: '#d0d6e0', word: '喜' },
-  { bg: 'rgba(94,106,210,0.12)', border: 'rgba(94,106,210,0.35)', text: '#9aa5f0', word: '吉' },
-  { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.10)', text: '#f7f8f8', word: '乐' },
-  { bg: 'rgba(94,106,210,0.08)', border: 'rgba(94,106,210,0.25)', text: '#b0b8f5', word: '顺' },
-];
-
-const BUBBLE_WORDS = ['福', '喜', '吉', '乐', '顺', '旺', '安', '美', '好', '爱', '暖', '甜'];
-
-let bubbleTimer = null;
-let burstCount = 0;
+const WORDS = ['福','喜','吉','乐','顺','旺','安','美','好','爱','暖','甜'];
+let bTimer=null, burst=0;
 
 function spawnBubble() {
-  if (!zenOverlay.classList.contains('active')) return;
-  const overlay = zenOverlay;
-  const w = overlay.clientWidth;
-  const h = overlay.clientHeight;
+  if(!zenOverlay.classList.contains('active')) return;
+  const o=zenOverlay, w=o.clientWidth, h=o.clientHeight;
+  const edge=Math.floor(Math.random()*4), size=52+Math.random()*46;
+  let x,y;
+  if(edge===0){x=Math.random()*w;y=h+20;} else if(edge===1){x=Math.random()*w;y=-20;}
+  else if(edge===2){x=-20;y=Math.random()*h;} else {x=w+20;y=Math.random()*h;}
+  const st=BUBBLES[Math.floor(Math.random()*BUBBLES.length)];
+  const wd=WORDS[Math.floor(Math.random()*WORDS.length)];
+  const b=document.createElement('div');
+  b.className='zen-bubble';
+  b.style.cssText=`left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:${st.bg};border:1px solid ${st.br};color:${st.tx};animation-duration:${4+Math.random()*3}s;animation-delay:${Math.random()*1.5}s;`;
+  b.innerHTML=`<span class="zen-bubble__text">${wd}</span>`;
+  b.addEventListener('click',e=>{e.stopPropagation();burstBubble(b,x+size/2,y+size/2);});
+  o.appendChild(b);
+  setTimeout(()=>b.remove(),(4+Math.random()*3)*1000+1500);
+  if(o.querySelectorAll('.zen-bubble').length>20){const q=o.querySelector('.zen-bubble');if(q)q.remove();}
+}
 
-  const edge = Math.floor(Math.random() * 4);
-  const size = 56 + Math.random() * 48;
-  let x, y;
-  switch (edge) {
-    case 0: x = Math.random() * w; y = h + 20; break;
-    case 1: x = Math.random() * w; y = -20; break;
-    case 2: x = -20; y = Math.random() * h; break;
-    case 3: x = w + 20; y = Math.random() * h; break;
+function burstBubble(b,cx,cy){
+  const say=AUSPICIOUS[Math.floor(Math.random()*AUSPICIOUS.length)];
+  if(b)b.remove();
+  const bu=document.createElement('div');
+  bu.className='zen-burst';bu.textContent=say;
+  bu.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);color:${Math.random()>.5?'#f2f3f7':'#e0c284'};`;
+  document.body.appendChild(bu);setTimeout(()=>bu.remove(),1500);
+  for(let i=0;i<10;i++){
+    const p=document.createElement('div');p.className='zen-particle';
+    const ang=(Math.PI*2*i)/10+Math.random()*.5,dist=40+Math.random()*50;
+    p.style.cssText=`left:${cx}px;top:${cy}px;background:${i%2?'#f2f3f7':'#c8a86e'};--dx:${Math.cos(ang)*dist}px;--dy:${Math.sin(ang)*dist}px;`;
+    document.body.appendChild(p);setTimeout(()=>p.remove(),850);
   }
-
-  const style = BUBBLE_STYLES[Math.floor(Math.random() * BUBBLE_STYLES.length)];
-  const word = BUBBLE_WORDS[Math.floor(Math.random() * BUBBLE_WORDS.length)];
-
-  const bubble = document.createElement('div');
-  bubble.className = 'zen-bubble';
-  bubble.style.cssText = `
-    left: ${x}px; top: ${y}px;
-    width: ${size}px; height: ${size}px;
-    background: ${style.bg};
-    border: 1px solid ${style.border};
-    color: ${style.text};
-    animation-duration: ${4 + Math.random() * 3}s;
-    animation-delay: ${Math.random() * 1.5}s;
-  `;
-  bubble.innerHTML = `<span class="zen-bubble__text">${word}</span>`;
-
-  bubble.addEventListener('click', (e) => {
-    e.stopPropagation();
-    burstBubble(bubble, x + size / 2, y + size / 2);
-  });
-
-  overlay.appendChild(bubble);
-  const dur = (4 + Math.random() * 3) * 1000 + 1500;
-  setTimeout(() => bubble.remove(), dur);
-
-  if (overlay.querySelectorAll('.zen-bubble').length > 22) {
-    const oldest = overlay.querySelector('.zen-bubble');
-    if (oldest) oldest.remove();
-  }
+  burst++;
+  zenProgress.textContent = burst%5===0 ? `已收集 ${burst} 份好运 ✨` : `＋1 好运（已收集 ${burst} 份）`;
 }
 
-function burstBubble(bubble, cx, cy) {
-  const saying = AUSPICIOUS[Math.floor(Math.random() * AUSPICIOUS.length)];
-  if (bubble) bubble.remove();
+function startZen(){burst=0;zenProgress.textContent='点点星尘，把好运气带回家';zenOverlay.classList.add('active');for(let i=0;i<8;i++)setTimeout(spawnBubble,i*120);bTimer=setInterval(spawnBubble,700);}
+function stopZen(){if(bTimer)clearInterval(bTimer);bTimer=null;zenOverlay.classList.remove('active');zenOverlay.querySelectorAll('.zen-bubble').forEach(b=>b.remove());}
+zenOverlay.addEventListener('click',e=>{if(e.target===zenOverlay)burstBubble(null,e.clientX,e.clientY);});
 
-  const burst = document.createElement('div');
-  burst.className = 'zen-burst';
-  burst.textContent = saying;
-  burst.style.cssText = `
-    left: ${cx}px; top: ${cy}px;
-    transform: translate(-50%, -50%);
-    color: ${Math.random() > .5 ? '#f7f8f8' : '#9aa5f0'};
-  `;
-  document.body.appendChild(burst);
-  setTimeout(() => burst.remove(), 1500);
-
-  for (let i = 0; i < 10; i++) {
-    const p = document.createElement('div');
-    p.className = 'zen-particle';
-    const angle = (Math.PI * 2 * i) / 10 + Math.random() * .5;
-    const dist = 40 + Math.random() * 50;
-    p.style.cssText = `
-      left: ${cx}px; top: ${cy}px;
-      background: ${i % 2 ? '#f7f8f8' : '#5e6ad2'};
-      --dx: ${Math.cos(angle) * dist}px;
-      --dy: ${Math.sin(angle) * dist}px;
-    `;
-    document.body.appendChild(p);
-    setTimeout(() => p.remove(), 850);
-  }
-
-  burstCount++;
-  zenProgress.textContent = burstCount % 5 === 0
-    ? `已收集 ${burstCount} 份好运 ✨`
-    : `＋1 好运（已收集 ${burstCount} 份）`;
-}
-
-function startZen() {
-  burstCount = 0;
-  zenProgress.textContent = '点点气泡，把好运气带回家';
-  zenOverlay.classList.add('active');
-  for (let i = 0; i < 8; i++) setTimeout(spawnBubble, i * 120);
-  bubbleTimer = setInterval(spawnBubble, 700);
-}
-
-function stopZen() {
-  if (bubbleTimer) clearInterval(bubbleTimer);
-  bubbleTimer = null;
-  zenOverlay.classList.remove('active');
-  zenOverlay.querySelectorAll('.zen-bubble').forEach(b => b.remove());
-}
-
-zenOverlay.addEventListener('click', (e) => {
-  if (e.target === zenOverlay) burstBubble(null, e.clientX, e.clientY);
-});
-
-document.querySelector('.idea-box__btn').addEventListener('click', () => {
-  const val = document.querySelector('.idea-box__input').value.trim();
-  if (!val) return;
-  document.querySelector('.idea-box__hint').textContent = '✨ 想法已收到，AI 正在为你创作…';
+document.querySelector('.gate__btn').addEventListener('click',()=>{
+  const v=document.querySelector('.gate__input').value.trim();
+  if(!v)return;
+  document.querySelector('.gate__hint').textContent='✨ 你的想法正在化为星辰…';
   startZen();
-  setTimeout(() => {
-    stopZen();
-    document.querySelector('.idea-box__hint').textContent = '🎉 演示版：连接 AI 后这里将展示你的专属成品';
-  }, 12000);
+  setTimeout(()=>{stopZen();document.querySelector('.gate__hint').textContent='🎉 演示版：连接 AI 后，你的星辰将在这里诞生';},12000);
 });
 </script>
 </body>
