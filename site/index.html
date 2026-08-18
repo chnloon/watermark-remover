@@ -23,11 +23,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- 宇宙画布（全屏星空） ---- */
+/* ---- 宇宙画布（全屏星尘，在氛围图之上） ---- */
 #universe {
   position: fixed; inset: 0;
-  z-index: 0;
+  z-index: 1;
   display: block;
+  pointer-events: none;
 }
 
 /* ---- 导航（悬浮于星空中） ---- */
@@ -274,6 +275,21 @@ body {
 </head>
 <body>
 
+<!-- ===== 背景层：山海氛围图 + 光晕 + 云海（方案C：图片基底+动效活起来） ===== -->
+<!-- ① 山海氛围图（深蓝星空+山脉，视差） -->
+<div class="bg-scene" id="bgScene"></div>
+<!-- ② 金色光晕（缓缓流动） -->
+<div class="bg-aura" aria-hidden="true">
+  <div class="bg-aura__orb bg-aura__orb--1"></div>
+  <div class="bg-aura__orb bg-aura__orb--2"></div>
+  <div class="bg-aura__orb bg-aura__orb--3"></div>
+</div>
+<!-- ③ 底部云海（缓缓平移=活的） -->
+<div class="bg-mist" aria-hidden="true">
+  <div class="bg-mist__layer bg-mist__layer--back"></div>
+  <div class="bg-mist__layer bg-mist__layer--front"></div>
+</div>
+<!-- ④ 星尘粒子（Canvas，最上层） -->
 <canvas id="universe"></canvas>
 
 <nav class="nav">
@@ -359,8 +375,71 @@ body {
 
 <script>
 /* ========================================
-   宇宙画布：星空 + 星体 + 鼠标视差
+   背景层（方案C：氛围图+动效）
    ======================================== */
+/* ① 山海氛围图 */
+.bg-scene {
+  position: fixed; inset:-30px;   /* 略放大，给视差留空间 */
+  z-index:0;
+  background-image:
+    linear-gradient(to bottom, rgba(5,6,10,.15) 0%, rgba(5,6,10,.55) 100%),
+    url('https://images.unsplash.com/photo-1519681393784-d120267933ba?w=2560&q=80');
+  background-size:cover;
+  background-position:center;
+  transform:scale(1.02);
+  will-change:transform;
+  transition:transform .2s ease-out;
+}
+
+/* ② 金色光晕（缓缓流动） */
+.bg-aura { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.bg-aura__orb {
+  position:absolute; border-radius:50%;
+  filter:blur(80px);
+  opacity:.35;
+  mix-blend-mode:screen;
+  animation:auraFloat 14s ease-in-out infinite;
+}
+.bg-aura__orb--1 {
+  width:520px; height:520px; left:8%; top:12%;
+  background:radial-gradient(circle, rgba(200,168,110,.5), transparent 70%);
+}
+.bg-aura__orb--2 {
+  width:420px; height:420px; right:10%; top:30%;
+  background:radial-gradient(circle, rgba(120,140,220,.4), transparent 70%);
+  animation-delay:-5s;
+}
+.bg-aura__orb--3 {
+  width:380px; height:380px; left:35%; bottom:10%;
+  background:radial-gradient(circle, rgba(200,168,110,.35), transparent 70%);
+  animation-delay:-9s;
+}
+@keyframes auraFloat {
+  0%,100%{ transform:translate(0,0) scale(1); }
+  33%{ transform:translate(40px,-30px) scale(1.08); }
+  66%{ transform:translate(-30px,25px) scale(.95); }
+}
+
+/* ③ 底部云海（缓缓平移=活的） */
+.bg-mist { position:fixed; left:0; right:0; bottom:0; height:40vh; z-index:0; pointer-events:none; overflow:hidden; }
+.bg-mist__layer {
+  position:absolute; left:0; right:0; bottom:0; height:100%;
+  background:linear-gradient(to top, rgba(5,6,10,.85) 20%, transparent);
+  opacity:.7;
+}
+.bg-mist__layer--back {
+  background-image:radial-gradient(ellipse at 20% 100%, rgba(120,140,220,.12), transparent 60%),
+                   radial-gradient(ellipse at 80% 100%, rgba(200,168,110,.1), transparent 55%);
+  animation:mistShift 40s ease-in-out infinite;
+}
+.bg-mist__layer--front {
+  background-image:radial-gradient(ellipse at 60% 100%, rgba(200,168,110,.08), transparent 55%);
+  animation:mistShift 60s ease-in-out infinite reverse;
+}
+@keyframes mistShift {
+  0%,100%{ transform:translateX(-2%); }
+  50%{ transform:translateX(2%); }
+}
 const cv = document.getElementById('universe');
 const ctx = cv.getContext('2d');
 let W, H, stars = [], mouseX = 0, mouseY = 0;
@@ -381,7 +460,16 @@ function initStars() {
 }
 window.addEventListener('resize', resize);
 resize();
-window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+window.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  // 背景图视差（跟随鼠标微移）
+  const bg = document.getElementById('bgScene');
+  if (bg) {
+    const dx = (e.clientX / innerWidth - 0.5) * -20;
+    const dy = (e.clientY / innerHeight - 0.5) * -14;
+    bg.style.transform = `scale(1.05) translate(${dx}px, ${dy}px)`;
+  }
+});
 
 let t = 0;
 function drawUniverse() {
