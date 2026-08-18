@@ -17,7 +17,7 @@
 
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { extractDouyinVideoId } = require('../utils/url');
+const { extractDouyinVideoId, extractUrl } = require('../utils/url');
 const { parseViaThirdParty } = require('../services/thirdPartyApi');
 const { parseViaLux } = require('../services/luxParser');
 const { parseVideo: parseViaBrowser } = require('../services/douyinBrowserParser');
@@ -113,17 +113,19 @@ async function parse(shareUrl) {
   const startTime = Date.now();
 
   try {
-    // 第一步：解析短链接，获取完整 URL（仅当输入是短链时才需要）
-    // 前端已负责解码 v.douyin.com 短链，服务端收到的大多是完整链接，可直接提取 ID
+    // 第一步：从输入中提取干净 URL（用户可能粘贴整段分享文案，含中文/多余字符）
+    const cleanInput = extractUrl(shareUrl) || shareUrl;
+
+    // 第二步：如果是抖音短链，先解码为完整 URL（后端无域名限制，可正常 302）
     let fullUrl = null;
-    if (/v\.douyin\.com/i.test(shareUrl) && !/video\/\d{17,21}/.test(shareUrl)) {
-      fullUrl = await resolveShortUrl(shareUrl);
+    if (/v\.douyin\.com/i.test(cleanInput) && !/video\/\d{17,21}/.test(cleanInput)) {
+      fullUrl = await resolveShortUrl(cleanInput);
       if (!fullUrl) {
         // 抖音对数据中心/低信誉 IP 的短链风控：302 直接跳到首页，无视频 ID
         failReasons.push('短链:抖音风控(302→首页,无视频ID)');
       }
     }
-    const targetUrl = fullUrl || shareUrl;
+    const targetUrl = fullUrl || cleanInput;
     const videoId = extractDouyinVideoId(targetUrl);
 
     // ---- 缓存命中检查 ----
@@ -376,8 +378,11 @@ async function fetchViaPage(url, videoId) {
           timeout: 8000,
         });
         html = response.data;
-        // JSVM 挑战壳（无真实数据）跳过，继续下一个候选
-        if (html && !html.includes('_$jsvmprt')) break;
+        // JSVM 挑战壳判断：
+        // - iesdouyin.com/share 分享页：虽含 _jsvmprt 壳，但内嵌完整 _ROUTER_DATA（真实数据），必须保留
+        // - www.douyin.com 主页面：纯 JSVM 壳（无数据），跳过继续下一个候选
+        const isSharePage = candidate.includes('iesdouyin.com/share');
+        if (html && (!html.includes('_$jsvmprt') || isSharePage)) break;
       } catch {
         // 尝试下一个候选
       }
