@@ -17,8 +17,8 @@ html { scroll-behavior:smooth; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
-  background: #05060a;              /* 深空 */
-  color: #f2f3f7;
+  background: #eef3fb;              /* 浅云蓝（透出云海） */
+  color: #1f2937;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -38,24 +38,42 @@ body {
   height: 56px;
   display: flex; align-items:center; justify-content:space-between;
   padding: 0 40px;
-  background: linear-gradient(to bottom, rgba(5,6,10,.85), transparent);
+  background: linear-gradient(to bottom, rgba(255,255,255,.82), transparent);
 }
 .nav__brand {
-  font-size:16px; font-weight:700; letter-spacing:3px;
-  color:#f2f3f7; text-decoration:none;
+  font-size:16px; font-weight:800; letter-spacing:3px;
+  text-decoration:none;
   display:flex; align-items:center; gap:10px;
 }
-.nav__brand .zh { font-size:12px; font-weight:400; color:#7a7f8f; letter-spacing:3px; }
+/* YCGEE 英文：流光溢彩蓝色动效 */
+.nav__brand .en {
+  font-size:17px; font-weight:800; letter-spacing:3px;
+  background: linear-gradient(90deg, #2b6cff, #4a9eff, #00d4ff, #2b6cff);
+  background-size: 200% auto;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:shimmer 3s linear infinite;
+}
+/* 汉字：白色 + 灰色阴影（浅色背景中增强存在感） */
+.nav__brand .zh {
+  font-size:12px; font-weight:600; letter-spacing:3px;
+  color:#ffffff;
+  text-shadow:0 1px 3px rgba(90,100,120,.5), 0 0 8px rgba(255,255,255,.4);
+}
+@keyframes shimmer {
+  to { background-position: -200% center; }
+}
 .nav__links { display:flex; gap:28px; align-items:center; }
-.nav__link { font-size:13px; color:#9aa0b5; text-decoration:none; letter-spacing:1px; transition:color .2s; }
-.nav__link:hover { color:#f2f3f7; }
+.nav__link { font-size:13px; color:#4b5563; text-decoration:none; letter-spacing:1px; transition:color .2s; font-weight:500; }
+.nav__link:hover { color:#2b6cff; }
 .nav__cta {
   font-size:13px; font-weight:600;
-  color:#05060a; background:#c8a86e;   /* 星光金 */
+  color:#fff; background:#2b6cff;   /* 蓝色 */
   border:none; border-radius:100px; padding:9px 22px; cursor:pointer;
   transition:transform .2s, box-shadow .2s;
 }
-.nav__cta:hover { transform:translateY(-1px); box-shadow:0 8px 30px rgba(200,168,110,.35); }
+.nav__cta:hover { transform:translateY(-1px); box-shadow:0 8px 30px rgba(43,108,255,.3); }
 
 /* ---- Hero（星空中的文字） ---- */
 .hero {
@@ -68,19 +86,20 @@ body {
 }
 .hero__eyebrow {
   font-size:11px; letter-spacing:8px; text-transform:uppercase;
-  color:#6a7085; margin-bottom:28px;
+  color:#64748b; margin-bottom:28px;
   animation:floatIn 1s ease both;
 }
 .hero__title {
   font-size:clamp(40px, 7.5vw, 80px);
-  font-weight:600; letter-spacing:-2px; line-height:1.05;
-  background: linear-gradient(180deg, #ffffff 30%, #9aa0b5 100%);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  font-weight:700; letter-spacing:-2px; line-height:1.05;
+  color:#1e293b;
+  text-shadow:0 2px 12px rgba(255,255,255,.6), 0 1px 3px rgba(90,100,120,.25);
   animation:floatIn 1s .1s ease both;
 }
+.hero__title .light { color:#475569; font-weight:500; }
 .hero__sub {
   font-size:clamp(15px, 2vw, 18px);
-  color:#8a90a5; margin-top:22px; letter-spacing:2px;
+  color:#475569; margin-top:22px; letter-spacing:2px;
   animation:floatIn 1s .2s ease both;
 }
 
@@ -90,49 +109,48 @@ body {
   margin-top:52px;
   animation:floatIn 1s .3s ease both;
 }
-/* 输入条：flex 布局，按钮完全内嵌 */
+/* 输入条：flex 布局，按钮完全内嵌（浅色透明） */
 .gate__bar {
   display:flex; align-items:stretch;
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.65);
+  border:1px solid rgba(148,163,184,.35);
   border-radius:14px;
   padding:6px 6px 6px 20px;
-  backdrop-filter:blur(10px);
-  transition:border-color .3s, background .3s, box-shadow .3s;
+  backdrop-filter:blur(12px);
+  box-shadow:0 4px 24px rgba(100,116,139,.15);
+  transition:border-color .3s, box-shadow .3s;
 }
 .gate__bar:focus-within {
-  border-color:rgba(200,168,110,.6);
-  background:rgba(255,255,255,.06);
-  box-shadow:0 0 40px rgba(200,168,110,.15);
+  border-color:rgba(43,108,255,.6);
+  box-shadow:0 4px 30px rgba(43,108,255,.25);
 }
 .gate__input {
   flex:1; min-width:0;
   background:transparent; border:none; outline:none;
   padding:16px 12px 16px 8px;
-  font-size:16px; color:#f2f3f7;
+  font-size:16px; color:#1e293b;
   font-family:inherit; letter-spacing:.5px;
 }
-.gate__input::placeholder { color:#5d6378; }
+.gate__input::placeholder { color:#94a3b8; }
 .gate__btn {
   flex-shrink:0; align-self:center;
-  background:linear-gradient(135deg, #e0c284, #b8925a);
-  color:#05060a; border:none; border-radius:10px;
+  background:linear-gradient(135deg, #4a9eff, #2b6cff);
+  color:#fff; border:none; border-radius:10px;
   padding:14px 26px; font-size:14px; font-weight:600;
   cursor:pointer; font-family:inherit; letter-spacing:2px;
   white-space:nowrap;
+  box-shadow:0 4px 20px rgba(43,108,255,.35);
   transition:transform .2s, box-shadow .2s;
 }
-.gate__btn:hover { transform:scale(1.03); box-shadow:0 8px 30px rgba(200,168,110,.4); }
-.gate__hint { margin-top:16px; font-size:12px; color:#5d6378; letter-spacing:1px; }
+.gate__btn:hover { transform:scale(1.03); box-shadow:0 8px 30px rgba(43,108,255,.5); }
+.gate__hint { margin-top:16px; font-size:12px; color:#6b7280; letter-spacing:1px; }
 
 /* ---- 星云区（滚动穿越） ---- */
 .nebula {
   position:relative; z-index:2;
   max-width:1100px; margin:80px auto 0; padding:0 24px;
 }
-.nebula__label {
-  text-align:center; font-size:11px; letter-spacing:8px;
-  text-transform:uppercase; color:#6a7085; margin-bottom:60px;
+.nebula__label { text-align:center; font-size:11px; letter-spacing:8px; text-transform:uppercase; color:#64748b; margin-bottom:60px;
 }
 .nebula__list { display:flex; flex-direction:column; gap:80px; }
 
@@ -141,6 +159,12 @@ body {
   display:flex; align-items:center; gap:40px;
   opacity:0; transform:scale(.92) translateY(40px);
   transition:opacity .9s ease, transform .9s ease;
+  padding:24px;
+  border-radius:20px;
+  background:rgba(255,255,255,.35);
+  backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.5);
+  box-shadow:0 8px 32px rgba(100,116,139,.12);
 }
 .star.in-view { opacity:1; transform:scale(1) translateY(0); }
 
@@ -148,12 +172,12 @@ body {
   flex-shrink:0;
   width:170px; height:170px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.12), rgba(255,255,255,.02) 60%);
-  border:1px solid rgba(255,255,255,.12);
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.8), rgba(240,244,255,.2) 60%);
+  border:1px solid rgba(43,108,255,.2);
   position:relative;
   box-shadow:
-    0 0 60px rgba(200,168,110,.12),
-    inset 0 0 30px rgba(255,255,255,.03);
+    0 0 40px rgba(43,108,255,.15),
+    inset 0 0 20px rgba(255,255,255,.4);
   animation:orbitPulse 4s ease-in-out infinite;
 }
 /* 行星光环 */
@@ -161,27 +185,28 @@ body {
   content:'';
   position:absolute; inset:-6px;
   border-radius:50%;
-  border:1px solid rgba(200,168,110,.15);
+  border:1px solid rgba(43,108,255,.25);
   transform:rotate(-12deg) scaleX(1.08);
 }
 .star__orb svg {
   position:relative; z-index:1;
-  filter:drop-shadow(0 0 12px rgba(200,168,110,.35));
+  filter:drop-shadow(0 2px 8px rgba(43,108,255,.3));
 }
 
 .star__body { flex:1; }
 .star__title {
   font-size:24px; font-weight:600; letter-spacing:-.5px;
-  color:#f2f3f7;
+  color:#1e293b;
 }
-.star__desc { font-size:15px; color:#8a90a5; margin-top:10px; line-height:1.7; letter-spacing:.3px; }
+.star__desc { font-size:15px; color:#475569; margin-top:10px; line-height:1.7; letter-spacing:.3px; }
 .star__tags { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
 .star__tag {
-  font-size:11px; color:#9aa0b5;
-  border:1px solid rgba(255,255,255,.1);
+  font-size:11px; color:#334155; font-weight:500;
+  background:rgba(255,255,255,.6);
+  border:1px solid rgba(148,163,184,.3);
   border-radius:100px; padding:3px 12px; letter-spacing:.5px;
 }
-.star__meta { flex-shrink:0; font-size:13px; color:#6a7085; text-align:right; }
+.star__meta { flex-shrink:0; font-size:13px; color:#64748b; text-align:right; }
 
 /* ---- 栏目（星域） ---- */
 .regions {
@@ -190,43 +215,44 @@ body {
 }
 .regions__grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:44px; }
 .region {
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.45);
+  border:1px solid rgba(255,255,255,.6);
   border-radius:16px; padding:36px 28px; cursor:pointer;
-  backdrop-filter:blur(8px);
+  backdrop-filter:blur(10px);
+  box-shadow:0 8px 32px rgba(100,116,139,.12);
   transition:transform .3s, background .3s, border-color .3s;
 }
-.region:hover { transform:translateY(-4px); background:rgba(255,255,255,.05); border-color:rgba(200,168,110,.3); }
+.region:hover { transform:translateY(-4px); background:rgba(255,255,255,.65); border-color:rgba(43,108,255,.3); }
 .region__icon {
   width:52px; height:52px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  background:radial-gradient(circle at 35% 30%, rgba(200,168,110,.12), rgba(200,168,110,.02) 60%);
-  border:1px solid rgba(200,168,110,.2);
-  box-shadow:0 0 24px rgba(200,168,110,.1);
+  background:radial-gradient(circle at 35% 30%, rgba(43,108,255,.12), rgba(43,108,255,.03) 60%);
+  border:1px solid rgba(43,108,255,.25);
+  box-shadow:0 0 24px rgba(43,108,255,.12);
 }
-.region__title { font-size:19px; font-weight:600; margin-top:14px; color:#f2f3f7; }
-.region__desc { font-size:14px; color:#8a90a5; margin-top:10px; line-height:1.6; }
-.region__link { display:inline-block; margin-top:14px; font-size:14px; color:#d4b97f; text-decoration:none; }
+.region__title { font-size:19px; font-weight:600; margin-top:14px; color:#1e293b; }
+.region__desc { font-size:14px; color:#475569; margin-top:10px; line-height:1.6; }
+.region__link { display:inline-block; margin-top:14px; font-size:14px; color:#2b6cff; text-decoration:none; }
 
 /* ---- 页脚 ---- */
 .footer {
   position:relative; z-index:2;
   margin-top:120px; padding:44px 20px;
-  border-top:1px solid rgba(255,255,255,.06);
-  text-align:center; font-size:12px; color:#5d6378; letter-spacing:2px;
+  border-top:1px solid rgba(148,163,184,.25);
+  text-align:center; font-size:12px; color:#64748b; letter-spacing:2px;
 }
 
 /* ---- 解压彩蛋（星尘气泡） ---- */
 .zen-overlay {
   position:fixed; inset:0; z-index:200;
-  background:rgba(5,6,10,.95);
+  background:rgba(238,243,251,.96);
   display:none; overflow:hidden; cursor:pointer;
 }
 .zen-overlay.active { display:block; }
 .zen-hint { position:absolute; top:18%; left:50%; transform:translateX(-50%); text-align:center; z-index:5; pointer-events:none; }
-.zen-hint__main { font-size:24px; font-weight:600; color:#f2f3f7; letter-spacing:1px; }
-.zen-hint__sub { font-size:13px; color:#8a90a5; margin-top:10px; letter-spacing:1px; }
-.zen-hint__progress { margin-top:16px; font-size:12px; color:#d4b97f; letter-spacing:2px; }
+.zen-hint__main { font-size:24px; font-weight:600; color:#1e293b; letter-spacing:1px; }
+.zen-hint__sub { font-size:13px; color:#64748b; margin-top:10px; letter-spacing:1px; }
+.zen-hint__progress { margin-top:16px; font-size:12px; color:#2b6cff; letter-spacing:2px; }
 
 .zen-bubble {
   position:absolute; border-radius:50%;
@@ -293,7 +319,7 @@ body {
 <canvas id="universe"></canvas>
 
 <nav class="nav">
-  <a class="nav__brand" href="/">YCGEE<span class="zh">云川集</span></a>
+  <a class="nav__brand" href="/"><span class="en">YCGEE</span><span class="zh">云川集</span></a>
   <div class="nav__links">
     <a class="nav__link" href="#nebula">星云</a>
     <a class="nav__link" href="#regions">星域</a>
@@ -327,9 +353,9 @@ body {
   <div class="regions__grid">
     <div class="region">
       <div class="region__icon">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 4 L21 13 L30 15 L23 21 L25 30 L18 25.5 L11 30 L13 21 L6 15 L15 13 Z"/>
-          <circle cx="18" cy="18" r="2" fill="#c8a86e" stroke="none"/>
+          <circle cx="18" cy="18" r="2" fill="#2b6cff" stroke="none"/>
         </svg>
       </div>
       <div class="region__title">惊喜工坊</div>
@@ -338,7 +364,7 @@ body {
     </div>
     <div class="region">
       <div class="region__icon">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="5" y="7" width="26" height="22" rx="2"/>
           <circle cx="12" cy="14" r="3"/>
           <path d="M5 25 L13 17 L19 22 L24 16 L31 23"/>
@@ -350,7 +376,7 @@ body {
     </div>
     <div class="region">
       <div class="region__icon">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="14" cy="14" r="7"/>
           <circle cx="25" cy="22" r="7"/>
           <path d="M14 21 L25 22 M14 21 C12 24 14 26 16 25"/>
@@ -377,13 +403,13 @@ body {
 /* ========================================
    背景层（方案C：氛围图+动效）
    ======================================== */
-/* ① 山海氛围图 */
+/* ① 云海天空图（云层之上自由飞翔） */
 .bg-scene {
   position: fixed; inset:-30px;   /* 略放大，给视差留空间 */
   z-index:0;
   background-image:
-    linear-gradient(to bottom, rgba(5,6,10,.15) 0%, rgba(5,6,10,.55) 100%),
-    url('https://images.unsplash.com/photo-1519681393784-d120267933ba?w=2560&q=80');
+    linear-gradient(to bottom, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 60%, rgba(240,244,250,.35) 100%),
+    url('https://images.unsplash.com/photo-1499346030926-9a72daac6c63?w=2560&q=80');
   background-size:cover;
   background-position:center;
   transform:scale(1.02);
@@ -402,7 +428,7 @@ body {
 }
 .bg-aura__orb--1 {
   width:520px; height:520px; left:8%; top:12%;
-  background:radial-gradient(circle, rgba(200,168,110,.5), transparent 70%);
+  background:radial-gradient(circle, rgba(74,158,255,.35), transparent 70%);
 }
 .bg-aura__orb--2 {
   width:420px; height:420px; right:10%; top:30%;
@@ -411,7 +437,7 @@ body {
 }
 .bg-aura__orb--3 {
   width:380px; height:380px; left:35%; bottom:10%;
-  background:radial-gradient(circle, rgba(200,168,110,.35), transparent 70%);
+  background:radial-gradient(circle, rgba(43,108,255,.3), transparent 70%);
   animation-delay:-9s;
 }
 @keyframes auraFloat {
@@ -420,20 +446,20 @@ body {
   66%{ transform:translate(-30px,25px) scale(.95); }
 }
 
-/* ③ 底部云海（缓缓平移=活的） */
+/* ③ 底部云海（白色云雾，缓缓平移=活的） */
 .bg-mist { position:fixed; left:0; right:0; bottom:0; height:40vh; z-index:0; pointer-events:none; overflow:hidden; }
 .bg-mist__layer {
   position:absolute; left:0; right:0; bottom:0; height:100%;
-  background:linear-gradient(to top, rgba(5,6,10,.85) 20%, transparent);
+  background:linear-gradient(to top, rgba(240,244,250,.9) 20%, transparent);
   opacity:.7;
 }
 .bg-mist__layer--back {
-  background-image:radial-gradient(ellipse at 20% 100%, rgba(120,140,220,.12), transparent 60%),
-                   radial-gradient(ellipse at 80% 100%, rgba(200,168,110,.1), transparent 55%);
+  background-image:radial-gradient(ellipse at 20% 100%, rgba(255,255,255,.9), transparent 60%),
+                   radial-gradient(ellipse at 80% 100%, rgba(43,108,255,.1), transparent 55%);
   animation:mistShift 40s ease-in-out infinite;
 }
 .bg-mist__layer--front {
-  background-image:radial-gradient(ellipse at 60% 100%, rgba(200,168,110,.08), transparent 55%);
+  background-image:radial-gradient(ellipse at 60% 100%, rgba(255,255,255,.8), transparent 55%);
   animation:mistShift 60s ease-in-out infinite reverse;
 }
 @keyframes mistShift {
@@ -482,17 +508,17 @@ function drawUniverse() {
     const alpha = 0.35 + 0.5 * Math.abs(Math.sin(t / (1000 / s.sp) + s.tw));
     ctx.beginPath();
     ctx.arc(px, py, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(220, 225, 240, ${alpha})`;
+    ctx.fillStyle = `rgba(71, 85, 105, ${alpha})`;
     ctx.fill();
   });
-  // 少量金色星（点缀）
+  // 少量蓝色星（点缀）
   for (let i = 0; i < 12; i++) {
     const sx = (i * 137.5) % W;
     const sy = (i * 61.8) % H;
     const alpha = 0.3 + 0.4 * Math.sin(t / 600 + i);
     ctx.beginPath();
     ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(200, 168, 110, ${alpha})`;
+    ctx.fillStyle = `rgba(43, 108, 255, ${alpha})`;
     ctx.fill();
   }
   requestAnimationFrame(drawUniverse);
@@ -501,14 +527,14 @@ requestAnimationFrame(drawUniverse);
 
 /* ---- 星体数据（作品 = 星） ---- */
 const stars_data = [
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 L28 34 M44 26 L36 34 M32 40 L32 44"/><path d="M26 46 C28 50 36 50 38 46"/></svg>', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一颗可以一直发光的星。', tags: ['照片墙','时间轴','音乐'], likes:'1.2k' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 C24 20 40 20 44 26"/><path d="M20 26 L22 46 L42 46 L44 26"/><path d="M26 26 L26 22 M38 26 L38 22"/></svg>', title: '妈妈的生日 H5', desc: '为妈妈点亮一颗生日星——她的照片、你写的话、全家福缓缓转动。', tags: ['动态贺卡','全家福','祝福弹幕'], likes:'982' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 40 L20 44 L24 44 M28 32 C36 24 44 20 48 24 C52 28 46 38 38 44"/><path d="M30 34 L32 32"/></svg>', title: '手写情书生成器', desc: '把心里话变成一封有温度的手写体情书，可打印、可保存。', tags: ['手写字体','信纸','打印'], likes:'1.5k' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="25" cy="30" r="4"/><path d="M15 44 C15 36 22 32 32 32 C42 32 49 36 49 44"/><path d="M32 12 L34 16 L30 16 Z"/></svg>', title: '我家猫的专属主页', desc: '为毛孩子建一颗星：照片、日常、萌点，分享给朋友一起云吸猫。', tags: ['萌宠','日常','分享'], likes:'2.1k' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M32 14 L35 26 L47 26 L37.5 34 L41 46 L32 39 L23 46 L26.5 34 L17 26 L29 26 Z"/><circle cx="32" cy="31" r="2" fill="#c8a86e" stroke="none"/></svg>', title: '赛博朋克 Logo', desc: '说出品牌名，AI 生成赛博朋克风格的 Logo——独此一颗。', tags: ['AI生成','多风格','高清'], likes:'876' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M22 24 L30 32 L22 40"/><path d="M36 24 L44 32 L36 40"/></svg>', title: '童年故事绘本', desc: '把孩子的童年趣事变成图文绘本，让成长的星光永不熄灭。', tags: ['故事','插画','可打印'], likes:'1.8k' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M18 40 L18 26 L44 26 L44 40"/><path d="M14 40 L50 40"/><path d="M24 40 L24 44 L40 44 L40 40"/></svg>', title: '旅行回忆视频', desc: '把旅行的照片和视频，剪成一支有节奏、有字幕的回忆星轨。', tags: ['智能剪辑','卡点','字幕'], likes:'1.3k' },
-  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#c8a86e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="26" cy="32" r="3"/><circle cx="38" cy="32" r="3"/><path d="M20 38 C26 44 38 44 44 38"/></svg>', title: '专属告白歌曲页', desc: '告白写进会播歌、会飘花瓣的网页——TA 会记住这一刻。', tags: ['音乐','花瓣','文案'], likes:'2.6k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 L28 34 M44 26 L36 34 M32 40 L32 44"/><path d="M26 46 C28 50 36 50 38 46"/></svg>', title: '三周年纪念网页', desc: '把三年的照片、聊天记录和共同回忆，做成一颗可以一直发光的星。', tags: ['照片墙','时间轴','音乐'], likes:'1.2k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 26 C24 20 40 20 44 26"/><path d="M20 26 L22 46 L42 46 L44 26"/><path d="M26 26 L26 22 M38 26 L38 22"/></svg>', title: '妈妈的生日 H5', desc: '为妈妈点亮一颗生日星——她的照片、你写的话、全家福缓缓转动。', tags: ['动态贺卡','全家福','祝福弹幕'], likes:'982' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M20 40 L20 44 L24 44 M28 32 C36 24 44 20 48 24 C52 28 46 38 38 44"/><path d="M30 34 L32 32"/></svg>', title: '手写情书生成器', desc: '把心里话变成一封有温度的手写体情书，可打印、可保存。', tags: ['手写字体','信纸','打印'], likes:'1.5k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="25" cy="30" r="4"/><path d="M15 44 C15 36 22 32 32 32 C42 32 49 36 49 44"/><path d="M32 12 L34 16 L30 16 Z"/></svg>', title: '我家猫的专属主页', desc: '为毛孩子建一颗星：照片、日常、萌点，分享给朋友一起云吸猫。', tags: ['萌宠','日常','分享'], likes:'2.1k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M32 14 L35 26 L47 26 L37.5 34 L41 46 L32 39 L23 46 L26.5 34 L17 26 L29 26 Z"/><circle cx="32" cy="31" r="2" fill="#2b6cff" stroke="none"/></svg>', title: '赛博朋克 Logo', desc: '说出品牌名，AI 生成赛博朋克风格的 Logo——独此一颗。', tags: ['AI生成','多风格','高清'], likes:'876' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M22 24 L30 32 L22 40"/><path d="M36 24 L44 32 L36 40"/></svg>', title: '童年故事绘本', desc: '把孩子的童年趣事变成图文绘本，让成长的星光永不熄灭。', tags: ['故事','插画','可打印'], likes:'1.8k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><path d="M18 40 L18 26 L44 26 L44 40"/><path d="M14 40 L50 40"/><path d="M24 40 L24 44 L40 44 L40 40"/></svg>', title: '旅行回忆视频', desc: '把旅行的照片和视频，剪成一支有节奏、有字幕的回忆星轨。', tags: ['智能剪辑','卡点','字幕'], likes:'1.3k' },
+  { svg: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b6cff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"/><circle cx="26" cy="32" r="3"/><circle cx="38" cy="32" r="3"/><path d="M20 38 C26 44 38 44 44 38"/></svg>', title: '专属告白歌曲页', desc: '告白写进会播歌、会飘花瓣的网页——TA 会记住这一刻。', tags: ['音乐','花瓣','文案'], likes:'2.6k' },
 ];
 
 const starList = document.getElementById('starList');
@@ -540,11 +566,11 @@ const zenOverlay = document.getElementById('zenOverlay');
 const zenProgress = document.getElementById('zenProgress');
 const AUSPICIOUS = ['恭喜发财','身体健康','万事如意','心想事成','好运连连','平安喜乐','财源广进','步步高升','福气满满','岁岁平安','天天开心','梦想成真','顺顺利利','幸福美满','喜气洋洋','学业有成','事业腾飞'];
 const BUBBLES = [
-  { bg:'rgba(255,255,255,.05)', br:'rgba(255,255,255,.12)', tx:'#f2f3f7', w:'福' },
-  { bg:'rgba(255,255,255,.04)', br:'rgba(255,255,255,.10)', tx:'#c8cfe0', w:'喜' },
-  { bg:'rgba(200,168,110,.10)', br:'rgba(200,168,110,.3)', tx:'#e0c284', w:'吉' },
-  { bg:'rgba(255,255,255,.05)', br:'rgba(255,255,255,.10)', tx:'#f2f3f7', w:'乐' },
-  { bg:'rgba(200,168,110,.07)', br:'rgba(200,168,110,.22)', tx:'#d4b97f', w:'顺' },
+  { bg:'rgba(255,255,255,.6)', br:'rgba(148,163,184,.35)', tx:'#334155', w:'福' },
+  { bg:'rgba(255,255,255,.5)', br:'rgba(148,163,184,.3)', tx:'#475569', w:'喜' },
+  { bg:'rgba(43,108,255,.12)', br:'rgba(43,108,255,.3)', tx:'#2b6cff', w:'吉' },
+  { bg:'rgba(255,255,255,.55)', br:'rgba(148,163,184,.3)', tx:'#334155', w:'乐' },
+  { bg:'rgba(0,212,255,.1)', br:'rgba(0,180,255,.25)', tx:'#0284c7', w:'顺' },
 ];
 const WORDS = ['福','喜','吉','乐','顺','旺','安','美','好','爱','暖','甜'];
 let bTimer=null, burst=0;
@@ -573,12 +599,12 @@ function burstBubble(b,cx,cy){
   if(b)b.remove();
   const bu=document.createElement('div');
   bu.className='zen-burst';bu.textContent=say;
-  bu.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);color:${Math.random()>.5?'#f2f3f7':'#e0c284'};`;
+  bu.style.cssText=`left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);color:${Math.random()>.5?'#1e293b':'#2b6cff'};`;
   document.body.appendChild(bu);setTimeout(()=>bu.remove(),1500);
   for(let i=0;i<10;i++){
     const p=document.createElement('div');p.className='zen-particle';
     const ang=(Math.PI*2*i)/10+Math.random()*.5,dist=40+Math.random()*50;
-    p.style.cssText=`left:${cx}px;top:${cy}px;background:${i%2?'#f2f3f7':'#c8a86e'};--dx:${Math.cos(ang)*dist}px;--dy:${Math.sin(ang)*dist}px;`;
+    p.style.cssText=`left:${cx}px;top:${cy}px;background:\;--dx:${Math.cos(ang)*dist}px;--dy:${Math.sin(ang)*dist}px;`;
     document.body.appendChild(p);setTimeout(()=>p.remove(),850);
   }
   burst++;
