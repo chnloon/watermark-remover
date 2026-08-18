@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云川集 · 把你的想法变成现实</title>
+<meta name="description" content="云川集——普通人的想象力乌托邦。说出你的想法，AI 与创作者帮你把它变成现实。惊喜工坊 · 作品广场 · 创意集市">
+<style>
+/* ========================================
+   云川集 · 平台首页 v2
+   设计系统：Apple 法则
+   - 纯白底 + 近黑字 rgb(29,29,31)
+   - 负字距贯穿所有字号
+   - 按钮 300 轻字重，行动蓝 #0071E3
+   - 无阴影，层级靠背景明度（4级 fill）
+   - 毛玻璃导航 44px
+   - 正文 17px 起
+   ======================================== */
+
+:root {
+  --fill-primary: #ffffff;
+  --fill-secondary: #fafafc;
+  --fill-tertiary: #f5f5f7;
+  --fill-quaternary: #e8e8ed;
+  --text-primary: rgb(29, 29, 31);
+  --text-secondary: rgb(110, 110, 115);
+  --text-tertiary: rgb(134, 134, 139);
+  --accent: rgb(0, 113, 227);
+  --link: rgb(0, 102, 204);
+  --nav-frost: rgba(250, 250, 252, 0.8);
+  --max-width: 1680px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  background: var(--fill-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.3px;
+  overflow-x: hidden;
+}
+
+/* ---- 毛玻璃导航（44px，苹果式） ---- */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px;
+  background: var(--nav-frost);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0,0,0,.05);
+}
+
+.nav__brand {
+  font-size: 15px; font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.nav__links { display: flex; gap: 34px; align-items: center; }
+
+.nav__link {
+  font-size: 13px; font-weight: 400;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color .2s;
+}
+.nav__link:hover { color: var(--link); }
+
+.nav__cta {
+  font-size: 14px; font-weight: 300;  /* 轻字重 */
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 980px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.nav__cta:hover { opacity: .85; }
+
+/* ---- Hero 首屏 ---- */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 120px 24px 40px;
+  background: var(--fill-primary);
+}
+
+.hero__eyebrow {
+  font-size: 12px; font-weight: 400;
+  color: var(--text-tertiary);
+  letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 20px;
+  animation: fadeUp .8s ease both;
+}
+
+.hero__title {
+  font-size: clamp(48px, 7.5vw, 80px);
+  font-weight: 600;
+  letter-spacing: -1.2px;   /* 苹果 H1 负字距 */
+  line-height: 1.05;
+  text-align: center;
+  max-width: 980px;
+  animation: fadeUp .8s .1s ease both;
+}
+
+.hero__title .light {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.hero__sub {
+  font-size: clamp(17px, 2.2vw, 21px);
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: var(--text-secondary);
+  margin-top: 18px;
+  text-align: center;
+  animation: fadeUp .8s .2s ease both;
+}
+
+/* ---- 大输入框（苹果式：无阴影，靠层级） ---- */
+.idea-box {
+  width: 100%; max-width: 720px;
+  margin-top: 48px;
+  animation: fadeUp .8s .3s ease both;
+  position: relative;
+}
+
+.idea-box__input {
+  width: 100%;
+  background: var(--fill-tertiary);   /* 三级 fill，无阴影 */
+  border: 1px solid transparent;
+  border-radius: 18px;
+  padding: 22px 30px;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+  outline: none;
+  transition: background .3s, border-color .3s;
+}
+.idea-box__input::placeholder { color: var(--text-tertiary); }
+.idea-box__input:focus {
+  background: var(--fill-primary);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);  /* 焦点环（唯一允许的强调） */
+}
+
+.idea-box__btn {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent);   /* 行动蓝，唯一强调色 */
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 15px; font-weight: 300;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.idea-box__btn:hover { opacity: .85; }
+
+.idea-box__hint {
+  text-align: center;
+  font-size: 13px; color: var(--text-tertiary);
+  margin-top: 16px;
+  letter-spacing: 0.2px;
+}
+
+/* ---- 作品流（苹果式卡片：fill 层级，无阴影） ---- */
+.works {
+  width: 100%;
+  margin-top: 80px;
+  overflow: hidden;
+}
+
+.works__label {
+  text-align: center;
+  font-size: 12px; color: var(--text-tertiary);
+  letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.works__flow {
+  display: flex; gap: 18px;
+  width: max-content;
+  animation: flow 45s linear infinite;
+  padding-bottom: 24px;
+}
+.works:hover .works__flow { animation-play-state: paused; }
+
+.work-card {
+  width: 320px; flex-shrink: 0;
+  background: var(--fill-tertiary);   /* 层级而非阴影 */
+  border-radius: 18px;
+  padding: 20px;
+  transition: background .3s, transform .3s;
+  cursor: pointer;
+}
+.work-card:hover {
+  background: var(--fill-quaternary);
+  transform: translateY(-4px);
+}
+
+.work-card__thumb {
+  width: 100%; height: 170px;
+  border-radius: 12px;
+  background: var(--fill-quaternary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 46px;
+  margin-bottom: 14px;
+}
+
+.work-card__title {
+  font-size: 17px; font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--text-primary);
+}
+
+.work-card__meta {
+  display: flex; justify-content: space-between;
+  margin-top: 8px;
+  font-size: 13px; color: var(--text-tertiary);
+}
+
+/* ---- 栏目 ---- */
+.sections {
+  max-width: 1200px;
+  margin: 100px auto 0;
+  padding: 0 24px;
+}
+
+.sections__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 40px;
+}
+
+.section-card {
+  background: var(--fill-tertiary);
+  border-radius: 20px;
+  padding: 36px 30px;
+  cursor: pointer;
+  transition: background .3s, transform .3s;
+}
+.section-card:hover { background: var(--fill-quaternary); transform: translateY(-3px); }
+
+.section-card__icon { font-size: 40px; }
+.section-card__title {
+  font-size: 24px; font-weight: 600;
+  letter-spacing: -0.5px;
+  margin-top: 14px;
+}
+.section-card__desc {
+  font-size: 17px; font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  line-height: 1.55;
+  letter-spacing: -0.2px;
+}
+
+.section-card__link {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 17px; font-weight: 400;
+  color: var(--link);
+  text-decoration: none;
+}
+.section-card__link:hover { text-decoration: underline; }
+
+/* ---- 页脚 ---- */
+.footer {
+  margin-top: 100px;
+  padding: 44px 24px;
+  background: var(--fill-secondary);
+  border-top: 1px solid rgba(0,0,0,.05);
+  text-align: center;
+  font-size: 13px; color: var(--text-tertiary);
+  letter-spacing: 0.2px;
+}
+
+/* ---- 动效 ---- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes flow {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ---- 响应式（320/834/1024 三断点） ---- */
+@media (max-width: 1024px) { .nav { padding: 0 24px; } }
+@media (max-width: 834px) {
+  .sections__grid { grid-template-columns: 1fr; }
+  .nav__links .nav__link { display: none; }
+  .hero__title { font-size: 44px; letter-spacing: -0.8px; }
+}
+@media (max-width: 320px) {
+  .idea-box__btn { position: static; transform: none; width: 100%; margin-top: 10px; }
+}
+
+/* ========================================
+   解压气泡等待彩蛋（等待 AI 时的互动小玩意）
+   ======================================== */
+.zen-overlay {
+  position: fixed; inset: 0;
+  z-index: 200;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(6px);
+  display: none;
+  overflow: hidden;
+  cursor: pointer;
+}
+.zen-overlay.active { display: block; }
+
+.zen-hint {
+  position: absolute;
+  top: 22%; left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+}
+.zen-hint__main {
+  font-size: 26px; font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+}
+.zen-hint__sub {
+  font-size: 15px; color: var(--text-tertiary);
+  margin-top: 10px;
+  letter-spacing: 1px;
+}
+.zen-hint__progress {
+  margin-top: 18px;
+  font-size: 13px; color: var(--accent);
+  letter-spacing: 2px;
+}
+
+.zen-bubble {
+  position: absolute;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+  transition: transform .15s ease;
+  animation: bubbleRise 5s ease-in infinite;
+  will-change: transform, opacity;
+}
+.zen-bubble:hover { transform: scale(1.15); }
+.zen-bubble:active { transform: scale(.9); }
+
+.zen-bubble__text {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-align: center;
+  line-height: 1.3;
+  padding: 4px;
+}
+
+@keyframes bubbleRise {
+  0%   { transform: translateY(30px); opacity: 0; }
+  15%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(-60px); opacity: 0; }
+}
+
+/* 点击爆出的吉祥话 */
+.zen-burst {
+  position: fixed;
+  z-index: 210;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  pointer-events: none;
+  animation: burstPop 1.4s ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes burstPop {
+  0%   { transform: scale(.3); opacity: 0; }
+  20%  { transform: scale(1.15); opacity: 1; }
+  40%  { transform: scale(1); }
+  100% { transform: translateY(-90px) scale(1.05); opacity: 0; }
+}
+
+/* 爆破小粒子 */
+.zen-particle {
+  position: fixed;
+  z-index: 209;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particleFly 0.8s ease-out forwards;
+}
+@keyframes particleFly {
+  0%   { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+
+/* 加载完成后自动收起 */
+.zen-overlay.done .zen-hint__progress { color: rgb(3,161,14); }
+</style>
+</head>
+<body>
+
+<!-- 毛玻璃导航 -->
+<nav class="nav">
+  <a class="nav__brand" href="/">云川集</a>
+  <div class="nav__links">
+    <a class="nav__link" href="#works">作品</a>
+    <a class="nav__link" href="#sections">工坊</a>
+    <a class="nav__link" href="#sections">集市</a>
+    <button class="nav__cta">开始创作</button>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero__eyebrow">你的想象力乌托邦</div>
+  <h1 class="hero__title">
+    说出你的想法<br>
+    <span class="light">让它变成现实</span>
+  </h1>
+  <p class="hero__sub">AI 与创作者，为每一个普通人实现想象</p>
+
+  <div class="idea-box">
+    <input class="idea-box__input" type="text" placeholder="说出你的想法… 例如：给妈妈做一个生日纪念视频" autocomplete="off">
+    <button class="idea-box__btn">生成</button>
+    <div class="idea-box__hint">免费体验 3 次 · 无需任何技术</div>
+  </div>
+
+  <div class="works" id="works">
+    <div class="works__label">来自创作者的想象力</div>
+    <div class="works__flow" id="workFlow"></div>
+  </div>
+</section>
+
+<!-- 栏目 -->
+<section class="sections" id="sections">
+  <div class="sections__grid">
+    <div class="section-card">
+      <div class="section-card__icon">🎁</div>
+      <div class="section-card__title">惊喜工坊</div>
+      <div class="section-card__desc">生日 · 表白 · 纪念日——给重要的人一份独一无二的惊喜。</div>
+      <a class="section-card__link" href="#">了解更多 ›</a>
+    </div>
+    <div class="section-card">
+      <div class="section-card__icon">🖼</div>
+      <div class="section-card__title">作品广场</div>
+      <div class="section-card__desc">创作者的想象力成品，浏览、点赞、一键同款。</div>
+      <a class="section-card__link" href="#">了解更多 ›</a>
+    </div>
+    <div class="section-card">
+      <div class="section-card__icon">🤝</div>
+      <div class="section-card__title">创意集市</div>
+      <div class="section-card__desc">有需求？发出来。有能力？接下单。互动即收益。</div>
+      <a class="section-card__link" href="#">了解更多 ›</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">云川集 · 让想象力被看见、被实现、被珍视</footer>
+
+<!-- 解压气泡等待层 -->
+<div class="zen-overlay" id="zenOverlay">
+  <div class="zen-hint">
+    <div class="zen-hint__main">正在为你创作 ✨</div>
+    <div class="zen-hint__sub">等待的时候，点一点气泡，沾沾喜气</div>
+    <div class="zen-hint__progress" id="zenProgress">点点气泡，把好运气带回家</div>
+  </div>
+</div>
+
+<script>
+const works = [
+  { icon: '💌', title: '三周年纪念网页', likes: '1.2k' },
+  { icon: '🎂', title: '妈妈的生日 H5', likes: '982' },
+  { icon: '🖋', title: '手写情书生成器', likes: '1.5k' },
+  { icon: '🐱', title: '我家猫的专属主页', likes: '2.1k' },
+  { icon: '🎨', title: '赛博朋克 Logo 定制', likes: '876' },
+  { icon: '📖', title: '童年故事绘本', likes: '1.8k' },
+  { icon: '🌅', title: '旅行回忆视频', likes: '1.3k' },
+  { icon: '🎵', title: '专属告白歌曲页', likes: '2.6k' },
+];
+
+const flow = document.getElementById('workFlow');
+const render = () => {
+  works.forEach(w => {
+    const card = document.createElement('div');
+    card.className = 'work-card';
+    card.innerHTML = `
+      <div class="work-card__thumb">${w.icon}</div>
+      <div class="work-card__title">${w.title}</div>
+      <div class="work-card__meta">
+        <span>创意作品</span>
+        <span>♥ ${w.likes}</span>
+      </div>`;
+    flow.appendChild(card);
+  });
+};
+render(); render();
+
+/* ========================================
+   解压气泡等待彩蛋逻辑
+   ======================================== */
+const zenOverlay = document.getElementById('zenOverlay');
+const zenProgress = document.getElementById('zenProgress');
+
+// 吉祥话词库
+const AUSPICIOUS = [
+  '恭喜发财', '身体健康', '万事如意', '心想事成', '好运连连',
+  '平安喜乐', '财源广进', '步步高升', '福气满满', '岁岁平安',
+  '天天开心', '梦想成真', '顺顺利利', '幸福美满', '龙马精神',
+  '喜气洋洋', '学业有成', '事业腾飞'
+];
+
+// 气泡调色板（黑白灰系，点缀一点暖色）
+const BUBBLE_COLORS = [
+  { bg: '#f5f5f7', text: '#1d1d1f' },
+  { bg: '#e8e8ed', text: '#1d1d1f' },
+  { bg: '#fafafc', text: '#3c3c43' },
+  { bg: '#fdf6ec', text: '#8a5a00' },  // 一点暖金
+  { bg: '#f0f0f2', text: '#1d1d1f' },
+];
+
+const BUBBLE_WORDS = ['福', '喜', '吉', '乐', '顺', '旺', '安', '美', '好', '爱', '暖', '甜'];
+
+let bubbleTimer = null;
+let burstCount = 0;
+
+// 生成一个气泡
+function spawnBubble() {
+  if (!zenOverlay.classList.contains('active')) return;
+
+  const overlay = zenOverlay;
+  const w = overlay.clientWidth;
+  const h = overlay.clientHeight;
+
+  // 气泡从四周边缘冒出
+  const edge = Math.floor(Math.random() * 4);
+  const size = 60 + Math.random() * 50; // 60-110px
+
+  let x, y;
+  switch (edge) {
+    case 0: x = Math.random() * w; y = h + 20; break;                    // 底部
+    case 1: x = Math.random() * w; y = -20; break;                       // 顶部
+    case 2: x = -20; y = Math.random() * h; break;                       // 左侧
+    case 3: x = w + 20; y = Math.random() * h; break;                    // 右侧
+  }
+
+  const color = BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)];
+  const word = BUBBLE_WORDS[Math.floor(Math.random() * BUBBLE_WORDS.length)];
+
+  const bubble = document.createElement('div');
+  bubble.className = 'zen-bubble';
+  bubble.style.cssText = `
+    left: ${x}px; top: ${y}px;
+    width: ${size}px; height: ${size}px;
+    background: ${color.bg};
+    color: ${color.text};
+    border: 1px solid rgba(0,0,0,.04);
+    animation-duration: ${4 + Math.random() * 3}s;
+    animation-delay: ${Math.random() * 1.5}s;
+  `;
+  bubble.innerHTML = `<span class="zen-bubble__text">${word}</span>`;
+
+  // 点击气泡 → 爆出吉祥话
+  bubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    burstBubble(bubble, x + size/2, y + size/2);
+  });
+
+  overlay.appendChild(bubble);
+
+  // 动画结束自动移除
+  const dur = (4 + Math.random() * 3) * 1000 + 1500;
+  setTimeout(() => bubble.remove(), dur);
+
+  // 限制气泡数量
+  if (overlay.querySelectorAll('.zen-bubble').length > 25) {
+    const oldest = overlay.querySelector('.zen-bubble');
+    if (oldest) oldest.remove();
+  }
+}
+
+// 点击气泡 → 吉祥话 + 粒子爆破
+function burstBubble(bubble, cx, cy) {
+  const saying = AUSPICIOUS[Math.floor(Math.random() * AUSPICIOUS.length)];
+  bubble.remove();
+
+  // 吉祥话
+  const burst = document.createElement('div');
+  burst.className = 'zen-burst';
+  burst.textContent = saying;
+  burst.style.cssText = `
+    left: ${cx}px; top: ${cy}px;
+    transform: translate(-50%, -50%);
+    color: ${Math.random() > .5 ? '#1d1d1f' : '#8a5a00'};
+  `;
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 1500);
+
+  // 粒子爆破
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement('div');
+    p.className = 'zen-particle';
+    const angle = (Math.PI * 2 * i) / 10 + Math.random() * .5;
+    const dist = 40 + Math.random() * 50;
+    p.style.cssText = `
+      left: ${cx}px; top: ${cy}px;
+      background: ${i % 2 ? '#1d1d1f' : '#c8c8cd'};
+      --dx: ${Math.cos(angle) * dist}px;
+      --dy: ${Math.sin(angle) * dist}px;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 850);
+  }
+
+  // 计数反馈
+  burstCount++;
+  if (burstCount % 5 === 0) {
+    zenProgress.textContent = `已收集 ${burstCount} 份好运 ✨`;
+  } else {
+    zenProgress.textContent = `＋1 好运（已收集 ${burstCount} 份）`;
+  }
+}
+
+// 开始解压模式
+function startZen() {
+  burstCount = 0;
+  zenProgress.textContent = '点点气泡，把好运气带回家';
+  zenOverlay.classList.add('active');
+  // 初始一批气泡
+  for (let i = 0; i < 8; i++) setTimeout(spawnBubble, i * 120);
+  // 持续冒泡
+  bubbleTimer = setInterval(spawnBubble, 700);
+}
+
+// 结束解压模式
+function stopZen() {
+  if (bubbleTimer) clearInterval(bubbleTimer);
+  bubbleTimer = null;
+  zenOverlay.classList.remove('active');
+  zenOverlay.querySelectorAll('.zen-bubble').forEach(b => b.remove());
+}
+
+// 点击空白处也弹出吉祥话（增加惊喜）
+zenOverlay.addEventListener('click', (e) => {
+  if (e.target === zenOverlay) {
+    burstBubble(null, e.clientX, e.clientY);
+  }
+});
+
+document.querySelector('.idea-box__btn').addEventListener('click', () => {
+  const val = document.querySelector('.idea-box__input').value.trim();
+  if (!val) return;
+  document.querySelector('.idea-box__hint').textContent = '✨ 想法已收到，AI 正在为你创作…';
+  startZen();
+  // 模拟 AI 创作耗时（真实接入后替换为真实等待）
+  setTimeout(() => {
+    stopZen();
+    document.querySelector('.idea-box__hint').textContent = '🎉 演示版：连接 AI 后这里将展示你的专属成品';
+  }, 12000); // 12 秒等待，期间可尽情点气泡
+});
+</script>
+</body>
+</html>
