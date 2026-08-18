@@ -163,7 +163,7 @@ async function parse(shareUrl) {
             return normalizeBrowserResult(br, videoId);
           });
         },
-        timeout: 15000,
+        timeout: 30000,
       });
     }
 
