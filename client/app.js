@@ -3,9 +3,9 @@
  */
 
 // 后端服务地址
-// 生产环境: 微信云托管 CloudRun 服务（正式域名）
+// 生产环境: 云川集官网域名（轻量服务器 Nginx 反向代理）
 // 真机调试需在小程序后台配置该域名为合法域名
-const API_BASE_URL = 'https://watermark-remover-4181976-1256682929.ap-shanghai.run.tcloudbase.com/api';
+const API_BASE_URL = 'https://yc0717.cc/api';
 
 App({
   // 全局数据
