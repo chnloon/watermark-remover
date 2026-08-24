@@ -237,6 +237,17 @@ body {
   border-top:1px solid rgba(148,163,184,.25);
   text-align:center; font-size:12px; color:#64748b; letter-spacing:2px;
 }
+.footer__brand { margin-bottom:12px; }
+.footer__beian {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font-size:12px; letter-spacing:1px;
+}
+.footer__beian a {
+  color:#64748b; text-decoration:none;
+  transition:color .2s;
+}
+.footer__beian a:hover { color:#2b6cff; }
+.footer__sep { color:#94a3b8; }
 
 /* ---- 解压彩蛋（星尘气泡） ---- */
 .zen-overlay {
@@ -452,7 +463,14 @@ body {
   </div>
 </section>
 
-<footer class="footer">YCGEE · 云川集 · 让每颗想法都成为星辰</footer>
+<footer class="footer">
+  <div class="footer__brand">YCGEE · 云川集 · 让每颗想法都成为星辰</div>
+  <div class="footer__beian">
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">鄂ICP备2026039950号-1</a>
+    <span class="footer__sep">|</span>
+    <a href="https://www.beian.gov.cn/" target="_blank" rel="noopener" id="gonganLink">鄂公网安备 待填编号</a>
+  </div>
+</footer>
 
 <div class="zen-overlay" id="zenOverlay">
   <div class="zen-hint">
