@@ -9,7 +9,10 @@
  *    与"校验过的 IP"是同一个，避免校验与连接分离造成的绕过窗口
  */
 
-const dns = require('dns').promises;
+// 注意：assertSafeUrl 用 Promise API；safeLookup 必须用回调版 dns.lookup，
+// 不能混用 promises 版（promises.lookup 第 3 个参数被忽略，回调永不触发 → axios 挂死）
+const dns = require('dns');
+const dnsPromises = dns.promises;
 const net = require('net');
 
 // IPv4 私有/危险网段（含 100.64/10 CGNAT、198.18/15 基准测试网段）
@@ -108,7 +111,7 @@ async function assertSafeUrl(rawUrl) {
   // 域名 → DNS 解析后校验（防 DNS rebinding）
   let addresses;
   try {
-    addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+    addresses = await dnsPromises.lookup(hostname, { all: true, verbatim: true });
   } catch (err) {
     throw createUnsafeError('域名解析失败');
   }
@@ -134,7 +137,23 @@ function safeLookup(hostname, options, callback) {
     options = {};
   }
   dns.lookup(hostname, options, (err, address, family) => {
-    if (!err && address && isDangerousIp(address)) {
+    if (err) {
+      return callback(err);
+    }
+    // Node 20+ 调自定义 lookup 时 options.all 为 true，address 是地址数组；
+    // 数组里混入危险地址同样要拦截
+    if (Array.isArray(address)) {
+      for (const entry of address) {
+        const ip = (entry && typeof entry === 'object' && 'address' in entry) ? entry.address : entry;
+        if (isDangerousIp(ip)) {
+          const e = new Error(`SSRF 拦截：域名解析到内网地址 ${ip}`);
+          e.code = 'UNSAFE_URL';
+          return callback(e);
+        }
+      }
+      return callback(null, address, family);
+    }
+    if (address && isDangerousIp(address)) {
       const e = new Error(`SSRF 拦截：域名解析到内网地址 ${address}`);
       e.code = 'UNSAFE_URL';
       return callback(e);

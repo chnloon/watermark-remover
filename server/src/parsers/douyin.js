@@ -38,7 +38,7 @@ function getLastDiagnostics() {
 // 同一视频重复解析时直接命中，避免全链路重跑（省时 + 降低平台风控压力）
 // ============================================================
 const CACHE_MAX_ENTRIES = 500;          // 最多缓存 500 条
-const CACHE_TTL_MS = 30 * 60 * 1000;    // TTL 30 分钟
+const CACHE_TTL_MS = 3 * 60 * 1000;    // TTL 3 分钟（抖音签名视频 URL 有效期很短，缓存太久会返回过期链接）
 const resultCache = new Map();          // key(videoId|url) -> { data, expiresAt }
 
 function cacheGet(key) {
@@ -209,6 +209,21 @@ async function parse(shareUrl) {
       durationMs: Date.now() - startTime,
       failReasons: failReasons.slice(),
     };
+
+    // 区分"视频失效"与"解析环境不可用"：
+    // 解析链路（浏览器/API）工作正常但拿不到数据 → 大概率视频已失效/需登录，
+    // 此时不应提示 lux 未安装（会误导用户以为功能坏了）。
+    const looksLikeVideoGone = failReasons.some((r) =>
+      /未找到视频数据|无 aweme_detail|视频不存在|已失效|需要登录|aweme 数据为空/i.test(r)
+    );
+    if (looksLikeVideoGone) {
+      return {
+        success: false,
+        platform: 'douyin',
+        error: '该视频可能已失效或需要登录，请检查链接是否正确',
+      };
+    }
+
     return await fallbackToThirdParty(targetUrl, videoId, luxResult);
   } catch (err) {
     console.error('[抖音] 解析异常:', err.message, '| 诊断:', failReasons.join(' → '));

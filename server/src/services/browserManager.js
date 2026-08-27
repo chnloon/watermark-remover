@@ -27,6 +27,13 @@ const CONFIG = {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-software-rasterizer',
+      // ---- 内存加固（低配云服务器 / 数据中心环境） ----
+      // 限制渲染进程数量与 JS 堆大小，避免 Chromium 在低内存 CVM 上
+      // 被 OOM 杀掉导致 page.evaluate 报 "promise was garbage collected"
+      '--renderer-process-limit=1',
+      '--js-flags=--max-old-space-size=384',
+      '--disable-features=Translate,BackForwardCache,InterestFeedContentSuggestions',
+      '--disable-component-extensions-with-background-pages',
     ],
   },
   // 平台对应的起始 URL（用于触发反爬验证）
@@ -302,60 +309,79 @@ async function acquirePage(platform) {
  */
 async function fetchWithBrowser(platform, url, fetchOptions = {}) {
   console.log(`[BrowserManager] fetchWithBrowser platform=${platform}, url=${url.substring(0, 120)}`);
-  const { page, release } = await acquirePage(platform);
 
-  try {
-    const result = await page.evaluate(
-      async ({ apiUrl, options }) => {
-        try {
-          const response = await fetch(apiUrl, {
-            method: options.method || 'GET',
-            credentials: 'include',
-            headers: Object.assign({
-              'Accept': 'application/json, text/plain, */*',
-              'Accept-Language': 'zh-CN,zh;q=0.9',
-              'Referer': 'https://www.douyin.com/',
-            }, options.headers || {}),
-            body: options.body || undefined,
-          });
-
-          const text = await response.text();
-          let parsed;
+  // 单次页面内 fetch 执行（页面自带平台 cookies / 反爬 token）
+  async function doFetch() {
+    const { page, release } = await acquirePage(platform);
+    try {
+      const result = await page.evaluate(
+        async ({ apiUrl, options }) => {
           try {
-            parsed = JSON.parse(text);
-          } catch {
-            parsed = { _rawText: text.substring(0, 500) };
+            const response = await fetch(apiUrl, {
+              method: options.method || 'GET',
+              credentials: 'include',
+              headers: Object.assign({
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+                'Referer': 'https://www.douyin.com/',
+              }, options.headers || {}),
+              body: options.body || undefined,
+            });
+
+            const text = await response.text();
+            let parsed;
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              parsed = { _rawText: text.substring(0, 500) };
+            }
+
+            return {
+              status: response.status,
+              ok: response.ok,
+              data: parsed,
+            };
+          } catch (fetchErr) {
+            return {
+              status: 0,
+              ok: false,
+              data: null,
+              _error: fetchErr.message,
+            };
           }
+        },
+        { apiUrl: url, options: fetchOptions }
+      );
 
-          return {
-            status: response.status,
-            ok: response.ok,
-            data: parsed,
-          };
-        } catch (fetchErr) {
-          return {
-            status: 0,
-            ok: false,
-            data: null,
-            _error: fetchErr.message,
-          };
-        }
-      },
-      { apiUrl: url, options: fetchOptions }
-    );
+      if (result._error) {
+        console.error(`[BrowserManager] fetch 内部失败: ${result._error}`);
+      } else {
+        console.log(`[BrowserManager] fetch 结果 status=${result.status}, ok=${result.ok}, hasData=${!!result.data}`);
+      }
 
-    if (result._error) {
-      console.error(`[BrowserManager] fetch 内部失败: ${result._error}`);
-    } else {
-      console.log(`[BrowserManager] fetch 结果 status=${result.status}, ok=${result.ok}, hasData=${!!result.data}`);
+      return result;
+    } finally {
+      await release();
     }
+  }
 
-    return result;
-  } catch (err) {
-    console.error(`[BrowserManager] page.evaluate 异常:`, err.message);
-    throw err;
-  } finally {
-    await release();
+  // 浏览器级故障（页面崩溃 / OOM / 进程断开）时重建浏览器重试一次：
+  // 低内存云服务器上 Chromium 渲染进程可能被系统 OOM-killer 杀掉，
+  // 此时 evaluate 的 promise 会被 GC，报 "Resulting promise was garbage collected"。
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await doFetch();
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      const isBrowserLevelFailure = /garbage collected|crash|disconnected|Target closed|browser has disconnected|Executable doesn't exist|Target page, context or browser has been closed/i.test(msg);
+      if (isBrowserLevelFailure && attempt === 1) {
+        console.warn(`[BrowserManager] 检测到浏览器级故障(${msg})，shutdown 后重建重试(第 2 次)`);
+        await shutdown().catch(() => {});
+        continue;
+      }
+      console.error(`[BrowserManager] page.evaluate 异常(尝试 ${attempt}/2):`, msg);
+      throw err;
+    }
   }
 }
 
