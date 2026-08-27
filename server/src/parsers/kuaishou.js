@@ -48,14 +48,7 @@ async function parse(shareUrl) {
       console.error('[快手] 第三方 API 也失败:', apiErr.message);
 
       if (apiErr.message && apiErr.message.includes('未配置')) {
-        // 第三方 API 未配置时，返回 lux 的实际错误（如果有的话）
-        if (luxResult.error && !luxResult.error.includes('未安装')) {
-          return {
-            success: false,
-            platform: 'kuaishou',
-            error: `解析失败: ${luxResult.error}`,
-          };
-        }
+        // 第三方 API 未配置，统一返回通用文案（不泄露内部错误）
         return {
           success: false,
           platform: 'kuaishou',
@@ -68,15 +61,14 @@ async function parse(shareUrl) {
     return {
       success: false,
       platform: 'kuaishou',
-      error: luxResult.error && !luxResult.error.includes('未安装')
-        ? `解析失败: ${luxResult.error}`
-        : '快手解析暂时不可用，请稍后重试',
+      error: '快手解析暂时不可用，请稍后重试',
     };
   } catch (err) {
+    console.error('[快手] 解析失败:', err.message);
     return {
       success: false,
       platform: 'kuaishou',
-      error: `解析失败: ${err.message}`,
+      error: '快手解析暂时不可用，请稍后重试',
     };
   }
 }
@@ -227,10 +219,11 @@ async function fetchVideoInfo(videoId) {
       },
     };
   } catch (err) {
+    console.error('[快手] 解析失败:', err.message);
     return {
       success: false,
       platform: 'kuaishou',
-      error: `解析失败: ${err.message}`,
+      error: '快手解析暂时不可用，请稍后重试',
     };
   }
 }

@@ -1,6 +1,6 @@
 /**
- * 首页 — 去水印解析入口 (Apple Design)
- * Phase 3 增强：剪贴板检测、骨架屏、统一错误处理
+ * 首页 — 链接解析入口 (Apple Design)
+ * 骨架屏、统一错误处理
  */
 
 const app = getApp();
@@ -8,68 +8,12 @@ const app = getApp();
 // 标记是否由粘贴按钮触发
 let isPasteButtonClick = false;
 
-/**
- * 小程序端解码抖音短链接（v.douyin.com/xxx）
- *
- * 抖音短链在服务器 IP 下会被风控：302 直接跳到首页（www.douyin.com），
- * 拿不到视频 ID，完整链接链路则正常。但用户手机 IP 是可信流量——
- * 从小程序端 wx.request 请求短链（自动跟随重定向），
- * 在最终响应 HTML 中提取视频 ID，再以完整链接调服务端解析。
- *
- * 注意：需在小程序后台「request 合法域名」加入 v.douyin.com。
- * 返回完整视频链接；解码失败返回 null（交由服务端兜底）。
- */
-function resolveDouyinShortLink(input) {
-  // 输入可能是带分享文案的整段文本（如"8.88 复制打开抖音，看看xxx https://v.douyin.com/xxx/ 复制此链接"），
-  // 先提取干净 URL：优先 v.douyin.com 短链，否则取第一个 http 链接
-  const text = String(input || '');
-  let m = text.match(/https?:\/\/v\.douyin\.com\/[^\s"'<>，。；！？]+/);
-  if (!m) m = text.match(/https?:\/\/[^\s"'<>，。；！？]+/);
-  if (!m) return Promise.resolve(null);
-  const shortUrl = m[0];
-
-  return new Promise((resolve) => {
-    wx.request({
-      url: shortUrl,
-      method: 'GET',
-      timeout: 15000,
-      success: (res) => {
-        if (res.statusCode !== 200 || typeof res.data !== 'string' || res.data.length < 100) {
-          resolve(null);
-          return;
-        }
-        const html = res.data;
-        // 按优先级提取视频 ID（17-21 位数字）
-        const patterns = [
-          /share\/video\/(\d{17,21})/, // m.douyin.com/share/video/{id}
-          /aweme_id["']?\s*[:=]\s*["']?(\d{17,21})/, // 内嵌 JSON 字段
-          /\/video\/(\d{17,21})/, // /video/{id}
-          /video[=/](\d{17,21})/, // 通用兜底
-        ];
-        for (const re of patterns) {
-          const m = html.match(re);
-          if (m) {
-            resolve(`https://www.douyin.com/video/${m[1]}`);
-            return;
-          }
-        }
-        resolve(null);
-      },
-      fail: () => resolve(null),
-    });
-  });
-}
-
 Page({
   data: {
     inputUrl: '',
     isLoading: false,
     showSkeleton: false,
     autoFocus: false,
-
-    // 剪贴板检测
-    clipboardUrl: '',
-    clipboardDismissed: false,
 
     // 平台列表 — 钢印风格 LOGO
     platforms: [
@@ -147,59 +91,10 @@ Page({
     const pendingUrl = app.globalData.pendingHistoryUrl;
     if (pendingUrl) {
       app.globalData.pendingHistoryUrl = '';
-      this.setData({ inputUrl: pendingUrl, clipboardDismissed: true }, () => {
+      this.setData({ inputUrl: pendingUrl }, () => {
         this.doParse(pendingUrl);
       });
-      return;
     }
-
-    // 检测剪贴板（如果输入框为空且尚未关闭提示）
-    if (!this.data.inputUrl && !this.data.clipboardDismissed) {
-      this.detectClipboard();
-    }
-  },
-
-  /**
-   * 检测剪贴板内容
-   */
-  async detectClipboard() {
-    try {
-      const res = await wx.getClipboardData({});
-      const text = (res.data || '').trim();
-      if (text && /https?:\/\//i.test(text)) {
-        this.setData({ clipboardUrl: text });
-      }
-    } catch (err) {
-      // 静默失败 — 剪贴板权限可能被拒绝
-      console.log('[剪贴板] 读取失败:', err.errMsg);
-    }
-  },
-
-  /**
-   * 一键解析剪贴板链接
-   */
-  onParseClipboard() {
-    const url = this.data.clipboardUrl;
-    if (url) {
-      isPasteButtonClick = true;
-      this.setData({
-        inputUrl: url,
-        clipboardUrl: '',
-        clipboardDismissed: true,
-      }, () => {
-        this.doParse(url);
-      });
-    }
-  },
-
-  /**
-   * 关闭剪贴板提示
-   */
-  onDismissClipboard() {
-    this.setData({
-      clipboardUrl: '',
-      clipboardDismissed: true,
-    });
   },
 
   /**
@@ -250,8 +145,6 @@ Page({
         isPasteButtonClick = true;
         this.setData({
           inputUrl: res.data,
-          clipboardUrl: '',
-          clipboardDismissed: true,
         }, () => {
           this.doParse(res.data.trim());
         });
@@ -333,5 +226,14 @@ Page({
     } finally {
       this.setData({ isLoading: false });
     }
+  },
+
+  /**
+   * 打开用户协议与隐私保护指引页
+   */
+  onOpenAgreement() {
+    wx.navigateTo({
+      url: '/pages/agreement/agreement',
+    });
   },
 });

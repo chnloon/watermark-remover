@@ -1,5 +1,5 @@
 <!-- ========================================
-     首页 — 去水印 (Apple iOS Style)
+     首页 — 链接解析 (Apple iOS Style)
      ======================================== -->
 
 <view class="page page--index">
@@ -57,12 +57,6 @@
           <text wx:else>解析中</text>
         </button>
       </view>
-      <!-- 剪贴板检测提示条 -->
-      <view wx:if="{{clipboardUrl && !inputUrl && !clipboardDismissed}}" class="clipboard-hint fade-in-up--d2">
-        <text class="clipboard-hint__text">检测到剪贴板链接</text>
-        <button class="clipboard-hint__btn" bindtap="onParseClipboard">一键解析</button>
-        <text class="clipboard-hint__close" bindtap="onDismissClipboard">✕</text>
-      </view>
     </view>
 
     <!-- 弹性撑开 -->
@@ -71,7 +65,8 @@
     <!-- 底部说明 -->
     <view class="footer fade-in-up--d3">
       <text class="footer__text">支持抖音 / 快手 / 小红书 / 网页视频</text>
-      <text class="footer__hint">粘贴链接后自动开始解析</text>
+      <text class="footer__hint">粘贴链接即可解析 · 仅限本人有权使用的内容</text>
+      <text class="footer__link" bindtap="onOpenAgreement">《用户协议与隐私保护指引》</text>
     </view>
 
   </view>

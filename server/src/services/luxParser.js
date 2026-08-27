@@ -104,12 +104,13 @@ async function parseViaLux(url, options = {}) {
 
     const videoData = result[0];
 
-    // lux 可能返回 err 字段表示内部错误
+    // lux 可能返回 err 字段表示内部错误（仅记日志，不回传客户端）
     if (videoData.err) {
+      console.error('[LuxParser] lux 内部错误:', videoData.err);
       return {
         success: false,
         platform: 'lux',
-        error: `lux 内部错误: ${videoData.err}`,
+        error: '解析器内部错误，请稍后重试',
       };
     }
 
@@ -175,7 +176,7 @@ async function parseViaLux(url, options = {}) {
     };
   } catch (err) {
     console.error('[LuxParser] Error:', err.message);
-    return { success: false, platform: 'lux', error: err.message };
+    return { success: false, platform: 'lux', error: '解析器执行失败，请稍后重试' };
   }
 }
 

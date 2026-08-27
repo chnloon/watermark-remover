@@ -1,5 +1,5 @@
 /**
- * 去水印助手 - 小程序入口
+ * 链接解析助手 - 小程序入口
  */
 
 // 后端服务地址
@@ -31,6 +31,8 @@ App({
       m3u8: '📺',
       generic: '🌐',
     },
+    // 版权确认标记：保存前首次弹窗，同意后本会话不再重复
+    copyrightConfirmed: false,
   },
 
   onLaunch() {
@@ -48,8 +50,40 @@ App({
       this.globalData.userOpenid = openid;
     }
 
+    // 隐私保护指引：首次调用隐私接口（剪贴板/相册等）时弹出授权
+    this.setupPrivacyListener();
+
     // 静默登录 — 获取 openid + JWT
     this.silentLogin();
+  },
+
+  /**
+   * 隐私保护指引监听（__usePrivacyCheck__ 生效后必须实现）
+   * 用户首次调用剪贴板/相册等隐私接口时，微信会触发该回调，
+   * 必须调用 resolve 告知授权结果，否则接口永久挂起。
+   */
+  setupPrivacyListener() {
+    if (!wx.onNeedPrivacyAuthorization) return; // 基础库过低，不启用弹窗
+
+    wx.onNeedPrivacyAuthorization((resolve) => {
+      wx.showModal({
+        title: '隐私保护指引',
+        content: '在使用本小程序前，请阅读并同意《用户协议与隐私保护指引》。\n\n我们仅在您主动点击时读取剪贴板链接，并在您确认后保存内容到相册；不会在后台收集您的任何个人信息。',
+        confirmText: '同意并继续',
+        cancelText: '不同意',
+        success: (res) => {
+          if (res.confirm) {
+            wx.requirePrivacyAuthorize({
+              success: () => resolve({ event: 'agree' }),
+              fail: () => resolve({ event: 'disagree' }),
+            });
+          } else {
+            resolve({ event: 'disagree' });
+          }
+        },
+        fail: () => resolve({ event: 'disagree' }),
+      });
+    });
   },
 
   /**
@@ -125,6 +159,12 @@ App({
         success: (res) => {
           if (res.statusCode === 200) {
             resolve(res.data);
+          } else if (res.statusCode === 401 && url !== '/auth/login') {
+            // token 失效/被拒 → 清除本地缓存并静默重登
+            this.globalData.userToken = '';
+            wx.removeStorageSync('userToken');
+            this.silentLogin();
+            reject(new Error('登录状态已失效，请重试'));
           } else {
             reject(new Error(`请求失败: ${res.statusCode}`));
           }

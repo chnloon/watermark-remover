@@ -179,63 +179,6 @@
   opacity: 0.8;
 }
 
-/* ---- 剪贴板检测提示（玻璃卡片） ---- */
-.clipboard-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-  margin-top: 24rpx;
-  padding: 20rpx 24rpx;
-  background: rgba(43, 108, 255, 0.08);
-  border: 1rpx solid rgba(43, 108, 255, 0.18);
-  border-radius: 16rpx;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.clipboard-hint__text {
-  font-size: 24rpx;
-  color: #2b6cff;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.clipboard-hint__btn {
-  flex-shrink: 0;
-  height: 56rpx;
-  line-height: 56rpx;
-  padding: 0 24rpx;
-  font-size: 24rpx;
-  color: #ffffff;
-  background: #2b6cff;
-  border-radius: 28rpx;
-  border: none;
-  font-weight: 500;
-}
-
-.clipboard-hint__btn:active {
-  opacity: 0.85;
-}
-
-.clipboard-hint__close {
-  flex-shrink: 0;
-  width: 36rpx;
-  height: 36rpx;
-  line-height: 36rpx;
-  text-align: center;
-  font-size: 22rpx;
-  color: #878c9b;
-  border-radius: 50%;
-}
-
-.clipboard-hint__close:active {
-  background: rgba(22, 24, 31, 0.05);
-}
-
-
 /* ---- 弹性撑开：将 footer 推到最底部 ---- */
 .spacer {
   flex: 1;
@@ -259,4 +202,11 @@
 .footer__hint {
   font-size: 20rpx;
   color: #878c9b;
+}
+
+.footer__link {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #2b6cff;
+  text-decoration: underline;
 }

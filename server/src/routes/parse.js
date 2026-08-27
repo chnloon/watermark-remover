@@ -102,7 +102,7 @@ router.post('/parse', async (req, res) => {
     return res.status(500).json({
       success: false,
       platform,
-      error: `服务器内部错误: ${err.message}`,
+      error: '服务器内部错误，请稍后重试',
     });
   }
 });

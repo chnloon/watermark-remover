@@ -394,10 +394,39 @@ Page({
   },
 
   /**
+   * 保存前版权确认（仅首次弹窗）
+   * 用户同意后写入 app.globalData.copyrightConfirmed，本次会话不再重复打扰
+   */
+  confirmCopyright() {
+    if (app.globalData.copyrightConfirmed) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '版权提示',
+        content: '请确认您保存的内容为本人创作、已获授权或符合平台规则允许的公开内容，且仅用于个人学习、存档，不会用于商业盗录或二次分发。',
+        confirmText: '确认保存',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            app.globalData.copyrightConfirmed = true;
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        },
+        fail: () => resolve(false),
+      });
+    });
+  },
+
+  /**
    * 保存视频到相册
-   * 流程: 点击 → 主动索取相册权限 → 下载去水印视频 → 存入相册
+   * 流程: 点击 → 版权确认（仅首次） → 主动索取相册权限 → 下载视频直链 → 存入相册
    */
   async onSaveVideo() {
+    // 保存前版权确认（仅首次弹窗，之后直接保存）
+    const consent = await this.confirmCopyright();
+    if (!consent) return;
+
     // 保存用原始 videoUrl（proxyVideoUrl 是给 video 组件播放的代理地址，
     // 再套 /api/download 会二次代理多一跳浪费流量）
     const videoUrl = this.data.resultData.data.videoUrl;
@@ -444,6 +473,10 @@ Page({
    * 保存列表中的单个视频到相册
    */
   async onSaveListItem(e) {
+    // 保存前版权确认（仅首次弹窗，之后直接保存）
+    const consent = await this.confirmCopyright();
+    if (!consent) return;
+
     const index = e.currentTarget.dataset.index;
     const items = this.data.resultData.data.items;
     if (!items || index < 0 || index >= items.length) {
@@ -498,6 +531,10 @@ Page({
    * 优先直连原始 URL（用户手机 IP 可信，图床不风控），失败再走代理兜底
    */
   async onSaveImages() {
+    // 保存前版权确认（仅首次弹窗，之后直接保存）
+    const consent = await this.confirmCopyright();
+    if (!consent) return;
+
     const images = this.data.resultData.data.images;
     const proxyImages = this.data.resultData.data.proxyImages;
     if (!images || images.length === 0) {

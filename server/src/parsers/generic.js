@@ -311,7 +311,7 @@ async function parse(inputUrl) {
     return {
       success: false,
       platform: 'generic',
-      error: `解析失败: ${err.message}`,
+      error: '网页解析失败，请稍后重试',
     };
   }
 }

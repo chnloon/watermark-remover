@@ -1,0 +1,57 @@
+<!-- ========================================
+     用户协议与隐私保护指引
+     ======================================== -->
+
+<view class="page page--agreement">
+
+  <!-- 标题 -->
+  <view class="agree-head">
+    <text class="agree-head__title">用户协议与隐私保护指引</text>
+    <text class="agree-head__version">{{version}}</text>
+  </view>
+
+  <scroll-view scroll-y class="agree-body">
+
+    <view class="agree-section">
+      <text class="agree-section__title">一、服务说明</text>
+      <text class="agree-section__text">本小程序提供短视频及图文平台公开链接的解析服务，帮助您获取已公开内容的播放/下载直链，用于个人学习、资料存档等合法用途。</text>
+      <text class="agree-section__text">您理解并同意：解析结果来源于第三方平台公开数据，本小程序不对平台内容的真实性、完整性负责。</text>
+    </view>
+
+    <view class="agree-section">
+      <text class="agree-section__title">二、用户行为规范</text>
+      <text class="agree-section__text">1. 您承诺仅解析、保存本人创作、已获合法授权或符合平台规则允许的内容，不得解析、保存任何侵犯他人著作权、肖像权、隐私权的内容。</text>
+      <text class="agree-section__text">2. 禁止将本服务用于商业盗录、二次分发他人作品、批量抓取等任何违反法律法规或平台规则的行为。</text>
+      <text class="agree-section__text">3. 因您违规使用本服务产生的法律后果由您自行承担；如因此导致本小程序运营方受损，您应承担赔偿责任。</text>
+    </view>
+
+    <view class="agree-section">
+      <text class="agree-section__title">三、隐私保护指引</text>
+      <text class="agree-section__text">1. 我们仅收集为提供服务所必需的最少信息：</text>
+      <text class="agree-section__text">· 微信登录标识（openid）：用于识别您的设备身份，保障服务稳定，不关联您的微信好友关系、聊天记录等任何其他信息；</text>
+      <text class="agree-section__text">· 您主动粘贴的链接：仅用于当次解析请求，解析完成后服务端不存储内容本身；</text>
+      <text class="agree-section__text">· 解析历史：仅保存在您的手机本地，可随时在"历史"页一键清空。</text>
+      <text class="agree-section__text">2. 相册权限：仅在您主动点击"保存"时，我们才会申请写入相册权限，用于将您确认保存的视频/图片存入您的相册。您拒绝授权不影响其他功能使用。</text>
+      <text class="agree-section__text">3. 我们不会向任何第三方出售您的个人信息；除法律法规要求或为维护服务安全所必需（如日志审计）外，不对外提供您的信息。</text>
+    </view>
+
+    <view class="agree-section">
+      <text class="agree-section__title">四、版权声明与免责声明</text>
+      <text class="agree-section__text">1. 所有解析内容的著作权、商标权及其他合法权益归原作者或相关平台所有，本小程序不主张任何所有权。</text>
+      <text class="agree-section__text">2. 如您认为相关内容的展示或保存侵犯了您的合法权益，请通过下方联系方式与我们联系，我们将在核实后尽快处理。</text>
+      <text class="agree-section__text">3. 第三方平台可能随时调整其数据接口，解析结果以平台实际返回为准，本小程序不对此作出任何保证。</text>
+      <text class="agree-section__text">4. 您使用本服务即表示您已阅读并同意本协议全部内容；若不同意，请停止使用本小程序。</text>
+    </view>
+
+    <view class="agree-section">
+      <text class="agree-section__title">五、协议的变更</text>
+      <text class="agree-section__text">我们可能根据法律法规或服务变化适时修订本协议，修订后将在本页面公布最新版本并更新生效日期，请您定期查阅。</text>
+    </view>
+
+    <view class="agree-footer">
+      <text class="agree-footer__text">联系方式：yc0717.cc（云川集）</text>
+      <text class="agree-footer__text">协议版本：{{version}}</text>
+    </view>
+
+  </scroll-view>
+</view>

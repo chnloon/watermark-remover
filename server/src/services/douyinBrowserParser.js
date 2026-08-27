@@ -219,7 +219,7 @@ async function parseViaBrowserApi(videoId) {
       console.error(`[DouyinBrowserParser] 请求异常 (${retries}/${maxRetries}):`, err.message);
 
       if (retries > maxRetries) {
-        return createResult(false, { videoId }, `浏览器解析失败: ${err.message}`);
+        return createResult(false, { videoId }, '浏览器解析失败，请稍后重试');
       }
 
       // 等待后重试

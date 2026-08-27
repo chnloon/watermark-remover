@@ -118,10 +118,11 @@ async function parse(inputUrl) {
         error: 'M3U8 链接需要登录或权限验证，无法直接访问',
       };
     }
+    console.error('[M3U8] 解析失败:', err.message);
     return {
       success: false,
       platform: 'm3u8',
-      error: `解析 M3U8 失败: ${err.message}`,
+      error: '解析 M3U8 失败，请检查链接后重试',
     };
   }
 }

@@ -71,7 +71,7 @@ function withTimeout(promise, ms, label) {
     const timer = setTimeout(() => resolve({ success: false, error: `${label}超时(${ms}ms)` }), ms);
     promise
       .then((result) => { clearTimeout(timer); resolve(result); })
-      .catch((err) => { clearTimeout(timer); resolve({ success: false, error: `${label}:${err.message}` }); });
+      .catch((err) => { clearTimeout(timer); resolve({ success: false, error: `${label}解析失败` }); });
   });
 }
 
@@ -222,7 +222,7 @@ async function parse(shareUrl) {
     return {
       success: false,
       platform: 'douyin',
-      error: `解析失败: ${err.message}`,
+      error: '抖音解析暂时不可用，请稍后重试',
     };
   }
 }

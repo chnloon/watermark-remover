@@ -59,7 +59,7 @@ router.post('/auth/login', async (req, res) => {
     });
   } catch (err) {
     console.error('[Auth] 登录错误:', err.message);
-    res.status(500).json({ success: false, error: '登录失败: ' + err.message });
+    res.status(500).json({ success: false, error: '登录失败，请稍后重试' });
   }
 });
 

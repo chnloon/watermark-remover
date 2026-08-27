@@ -2,11 +2,12 @@
   "pages": [
     "pages/index/index",
     "pages/result/result",
-    "pages/history/history"
+    "pages/history/history",
+    "pages/agreement/agreement"
   ],
   "window": {
     "navigationBarBackgroundColor": "#f3f4f7",
-    "navigationBarTitleText": "云川集",
+    "navigationBarTitleText": "链接解析",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f3f4f7"
   },
@@ -18,7 +19,7 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "去水印"
+        "text": "链接解析"
       },
       {
         "pagePath": "pages/history/history",
@@ -28,9 +29,10 @@
   },
   "permission": {
     "scope.writePhotosAlbum": {
-      "desc": "需要保存视频和图片到你的相册"
+      "desc": "用于保存您解析出的视频和图片到相册"
     }
   },
+  "__usePrivacyCheck__": true,
   "useExtendedLib": {
     "weui": true
   },

@@ -1,27 +1,55 @@
 /**
- * 去水印解析服务 - 入口文件
+ * 链接解析服务 - 入口文件
  *
  * 启动方式: node src/index.js
- * 监听端口: 3000 (可通过环境变量 PORT 配置，CloudRun 自动注入)
+ * 监听端口: 3001 (可通过环境变量 PORT 配置)
+ *
+ * 安全加固（2026-08-27）：
+ * - 删除 /api/debug/lux 无鉴权调试端点
+ * - SSRF 防护：/proxy/video 与 /api/download 校验目标地址（拒绝内网/回环），
+ *   连接时经 safeLookup 实时校验 DNS 解析结果
+ * - JWT 宽松校验中间件：携带无效 token 一律 401，未携带则匿名放行
+ * - 接口限流：/api/* 30 次/分钟，/proxy/video 与 /api/download 120 次/分钟
+ * - 错误信息脱敏：err.message 不再回传客户端
+ * - CORS 来源白名单 + 隐藏 X-Powered-By
  */
 
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const { execFile } = require('child_process');
+const rateLimit = require('express-rate-limit');
 const parseRoute = require('./routes/parse');
 const authRoute = require('./routes/auth');
-const { parseViaLux } = require('./services/luxParser');
-const LUX_BINARY = '/usr/local/bin/lux';
+const requireValidToken = require('./middleware/auth');
+const { assertSafeUrl, safeLookup } = require('./utils/ssrf');
+const config = require('./config');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
+
+// 信任一层反向代理（nginx），使 req.ip 与限流 key 取到真实客户端 IP
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // ===== 中间件 =====
 
-// CORS 跨域 - 允许小程序访问
+// CORS 跨域 - 小程序 wx.request 不携带 Origin（非浏览器），直接放行；
+// 浏览器访问仅允许官方站点来源
+const ALLOWED_ORIGINS = [
+  'https://yc0717.cc',
+  'https://www.yc0717.cc',
+  'http://localhost',
+  'http://127.0.0.1',
+];
+
 app.use(cors({
-  origin: '*',
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.some((o) => origin === o || origin.startsWith(o + ':'))) {
+      return cb(null, true);
+    }
+    return cb(null, false); // 拒绝：不返回 CORS 头，浏览器自行拦截
+  },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -40,9 +68,31 @@ app.use((req, res, next) => {
   next();
 });
 
+// ===== 限流 =====
+
+// 通用 API 限流（解析/登录/平台列表等）
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: '请求过于频繁，请稍后再试' },
+});
+
+// 媒体代理限流（视频播放/文件下载，频率较高）
+const mediaLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: '请求过于频繁，请稍后再试' },
+});
+
 // ===== 路由 =====
 
-// API 路由
+// API 路由（先限流，解析接口再叠加 JWT 宽松校验）
+app.use('/api', apiLimiter);
+app.use('/api/parse', requireValidToken);
 app.use('/api', parseRoute);
 app.use('/api', authRoute);
 
@@ -55,80 +105,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===== Lux 诊断端点 =====
-// 调试用：直接运行 lux -j -i <url> 并返回原始输出
-// 用于排查 chrome_child 权限问题、网络问题、URL 格式问题等
-
-app.get('/api/debug/lux', async (req, res) => {
-  const url = req.query.url;
-  if (!url) {
-    return res.status(400).json({ success: false, error: '缺少 url 参数' });
-  }
-
-  try {
-    const luxPath = process.env.LUX_PATH || LUX_BINARY;
-
-    // 先检查文件是否存在
-    const fs = require('fs');
-    let exists = false;
-    try {
-      await fs.promises.access(luxPath, fs.constants.F_OK);
-      exists = true;
-    } catch { /* not found */ }
-
-    // 执行 lux
-    const result = await new Promise((resolve) => {
-      const child = execFile(
-        luxPath,
-        ['-j', '-i', url],
-        {
-          timeout: 45000,
-          maxBuffer: 10 * 1024 * 1024,
-          env: { ...process.env },
-        },
-        (err, stdout, stderr) => {
-          resolve({ err, stdout, stderr, code: err?.code || 0 });
-        }
-      );
-    });
-
-    // 尝试解析 JSON 输出
-    let parsedOutput = null;
-    if (result.stdout && result.stdout.trim()) {
-      try {
-        parsedOutput = JSON.parse(result.stdout.trim());
-      } catch { /* not valid JSON */ }
-    }
-
-    res.json({
-      success: true,
-      luxPath,
-      exists,
-      exitCode: result.code,
-      errorMessage: result.err?.message || null,
-      stderr: result.stderr?.substring(0, 2000) || '',
-      stdout: result.stdout?.substring(0, 5000) || '',
-      parsedOutput,
-      env: {
-        PATH: (process.env.PATH || '').substring(0, 500),
-        HOME: process.env.HOME || '',
-        USER: process.env.USER || '',
-      },
-    });
-  } catch (err) {
-    res.json({
-      success: false,
-      error: err.message,
-      stack: err.stack?.substring(0, 1000),
-    });
-  }
-});
-
 // 根路径
 app.get('/', (req, res) => {
   res.json({
-    name: '去水印解析服务',
-    version: '1.0.0',
+    name: '链接解析服务',
+    version: '1.1.0',
     status: 'running',
     docs: {
       parse: 'POST /api/parse  { "url": "分享链接" }',
@@ -142,7 +123,7 @@ app.get('/', (req, res) => {
 // 抖音返回的视频地址需要特定请求头才能播放
 // 小程序 video 组件不支持自定义请求头，所以通过后端中转
 
-app.get('/proxy/video', async (req, res) => {
+app.get('/proxy/video', mediaLimiter, requireValidToken, async (req, res) => {
   const videoUrl = req.query.url;
   if (!videoUrl) {
     return res.status(400).json({ success: false, error: '缺少 url 参数' });
@@ -150,6 +131,9 @@ app.get('/proxy/video', async (req, res) => {
 
   try {
     const decodedUrl = decodeURIComponent(videoUrl);
+
+    // SSRF 防护：拒绝内网/回环/链路本地地址（含 DNS 解析校验）
+    await assertSafeUrl(decodedUrl);
 
     // 按视频 CDN 域名动态选择 Referer：
     // 抖音系 CDN 需要抖音 Referer 防盗链；xhscdn（小红书）对抖音 Referer 直接 403
@@ -163,7 +147,7 @@ app.get('/proxy/video', async (req, res) => {
       } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
         referer = 'https://www.xiaohongshu.com/';
       }
-    } catch { /* 非法 URL 交由 axios 报错 */ }
+    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
 
     // 构造请求头 - 透传客户端的 Range 头用于分片请求
     const requestHeaders = {
@@ -184,9 +168,17 @@ app.get('/proxy/video', async (req, res) => {
       responseType: 'stream',
       timeout: 30000,
       maxRedirects: 5,
+      lookup: safeLookup, // 连接时实时校验 DNS 结果，防 DNS rebinding
       // 4xx 透传给客户端（便于区分防盗链拒绝），5xx/其他抛错
       validateStatus: (status) => status < 500,
     });
+
+    // 拒绝把 HTML 页面当媒体回传（防止通过代理读取内网/第三方页面）
+    const contentType = (response.headers['content-type'] || '').toLowerCase();
+    if (contentType.startsWith('text/html')) {
+      response.data.resume(); // 丢弃响应体，释放连接
+      return res.status(502).json({ success: false, error: '目标资源类型不受支持' });
+    }
 
     // 转发所有视频相关响应头
     const forwardHeaders = [
@@ -223,8 +215,10 @@ app.get('/proxy/video', async (req, res) => {
 
     response.data.pipe(res);
   } catch (err) {
+    // 脱敏：SSRF 拦截(400)与内部错误(502)统一为通用文案，不泄露内部信息
+    const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
     console.error('[代理] 视频获取失败:', err.message);
-    res.status(502).json({ success: false, error: '视频获取失败: ' + err.message });
+    res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '视频获取失败，请重新解析后重试' });
   }
 });
 
@@ -232,7 +226,7 @@ app.get('/proxy/video', async (req, res) => {
 // wx.downloadFile + wx.saveVideoToPhotosAlbum / wx.saveImageToPhotosAlbum
 // 通过后端中转：补 Referer/UA 请求头，避免平台防盗链拦截
 
-app.get('/api/download', async (req, res) => {
+app.get('/api/download', mediaLimiter, requireValidToken, async (req, res) => {
   const fileUrl = req.query.url;
   if (!fileUrl) {
     return res.status(400).json({ success: false, error: '缺少 url 参数' });
@@ -240,6 +234,9 @@ app.get('/api/download', async (req, res) => {
 
   try {
     const decodedUrl = decodeURIComponent(fileUrl);
+
+    // SSRF 防护：拒绝内网/回环/链路本地地址（含 DNS 解析校验）
+    await assertSafeUrl(decodedUrl);
 
     // 按 CDN 域名动态选择 Referer（与 /proxy/video 一致）：
     // 抖音系 CDN 需要抖音 Referer；xhscdn（小红书）对抖音 Referer 直接 403；
@@ -254,7 +251,7 @@ app.get('/api/download', async (req, res) => {
       } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
         referer = 'https://www.xiaohongshu.com/';
       }
-    } catch { /* 非法 URL 交由 axios 报错 */ }
+    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
 
     const requestHeaders = {
       'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36',
@@ -271,19 +268,24 @@ app.get('/api/download', async (req, res) => {
       responseType: 'stream',
       timeout: 120000,
       maxRedirects: 5,
+      lookup: safeLookup, // 连接时实时校验 DNS 结果，防 DNS rebinding
       validateStatus: (status) => status < 400,
     });
 
-    // 根据 Content-Type 判断文件类型，设置正确的文件名
-    const contentType = response.headers['content-type'] || 'application/octet-stream';
-    let filename = 'download';
+    // 拒绝把 HTML 页面当文件回传
+    const contentType = (response.headers['content-type'] || '').toLowerCase();
+    if (contentType.startsWith('text/html')) {
+      response.data.resume();
+      return res.status(502).json({ success: false, error: '目标资源类型不受支持' });
+    }
+
+    // 根据 Content-Type 判断文件类型，设置正确的文件名（中性命名）
+    let filename = 'download.bin';
     if (contentType.includes('video')) {
-      filename = 'watermark_free_video.mp4';
+      filename = 'video.mp4';
     } else if (contentType.includes('image')) {
       const ext = contentType.includes('png') ? '.png' : contentType.includes('gif') ? '.gif' : '.jpg';
-      filename = `watermark_free_image${ext}`;
-    } else {
-      filename = 'download.bin';
+      filename = `image${ext}`;
     }
 
     res.setHeader('Content-Type', contentType);
@@ -303,8 +305,10 @@ app.get('/api/download', async (req, res) => {
 
     response.data.pipe(res);
   } catch (err) {
+    // 脱敏：SSRF 拦截(400)与内部错误(502)统一为通用文案，不泄露内部信息
+    const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
     console.error('[下载] 失败:', err.message);
-    res.status(502).json({ success: false, error: '下载失败: ' + err.message });
+    res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '下载失败，请重新解析后重试' });
   }
 });
 
@@ -318,17 +322,16 @@ app.use((req, res) => {
 
 // ===== 启动服务 =====
 
-const config = require('./config');
-
 app.listen(PORT, () => {
   const hasApi = !!config.thirdPartyApi.type;
 
   console.log('═══════════════════════════════════════');
-  console.log('  去水印解析服务  v1.0.0');
+  console.log('  链接解析服务  v1.1.0');
   console.log(`  监听端口: ${PORT}`);
   console.log(`  健康检查: http://localhost:${PORT}/health`);
   console.log(`  解析接口: POST http://localhost:${PORT}/api/parse`);
   console.log('  支持平台: 抖音 / 快手 / 小红书');
+  console.log(`  JWT_SECRET: ${config.jwt.secret ? '已配置' : '未配置（生产环境将拒绝启动）'}`);
 
   if (!hasApi) {
     console.log('');
