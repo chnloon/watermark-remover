@@ -177,24 +177,32 @@ async function parse(shareUrl) {
       });
     }
 
-    // 并行执行所有策略，等全部 settle 后按优先级取第一个成功
+    // 并行竞速所有策略：任一成功立即返回（不被其他慢路拖累），全部失败则等 settle 后按优先级取成功
     console.log(`[抖音] 并行发起 ${strategies.length} 路解析: ${strategies.map(s => s.name).join('/')}`);
-    const settled = await Promise.all(
-      strategies.map((s) => withTimeout(s.run(), s.timeout, s.name))
+    const settledPromises = strategies.map((s) =>
+      withTimeout(s.run(), s.timeout, s.name).then((result) => ({ result, name: s.name }))
     );
 
     let winner = null;
-    settled.forEach((result, idx) => {
-      if (!result.success) {
-        failReasons.push(`${strategies[idx].name}:${result.error || '失败'}`);
-      } else if (!winner) {
-        winner = result;
-      }
-    });
+    const first = await Promise.race(settledPromises);
+    if (first.result.success) {
+      winner = first.result;
+    } else {
+      // 首个 settle 的是失败路——等全部 settle，按策略顺序取第一个成功
+      const all = await Promise.all(settledPromises);
+      const ordered = all.map(({ result }, idx) => ({ result, name: strategies[idx].name }));
+      ordered.forEach(({ result, name }) => {
+        if (!result.success) {
+          failReasons.push(`${name}:${result.error || '失败'}`);
+        } else if (!winner) {
+          winner = result;
+        }
+      });
+    }
 
     if (winner) {
       cacheSet(cacheKey, winner);
-      console.log(`[抖音] ${strategies[settled.indexOf(winner)].name} 解析成功 (${Date.now() - startTime}ms)`);
+      console.log(`[抖音] 竞速命中: ${first.result.success ? first.name : '（后续策略）'} 解析成功 (${Date.now() - startTime}ms)`);
       return winner;
     }
 
