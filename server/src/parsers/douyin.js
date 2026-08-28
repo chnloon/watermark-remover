@@ -207,7 +207,7 @@ async function parse(shareUrl) {
 
     if (winner) {
       cacheSet(cacheKey, winner);
-      console.log(`[抖音] 竞速命中: ${first.result.success ? first.name : '（后续策略）'} 解析成功 (${Date.now() - startTime}ms)`);
+      console.log(`[抖音] 竞速命中: ${raced.name} 解析成功 (${Date.now() - startTime}ms)`);
       return winner;
     }
 
