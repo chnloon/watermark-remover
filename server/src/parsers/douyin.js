@@ -144,14 +144,14 @@ async function parse(shareUrl) {
       strategies.push({
         name: 'API',
         run: () => fetchViaApi(videoId),
-        timeout: 6000,
+        timeout: 15000,
       });
     }
     if (videoId || fullUrl) {
       strategies.push({
         name: '页面SSR',
         run: () => fetchViaPage(targetUrl, videoId),
-        timeout: 8000,
+        timeout: 20000,
       });
     }
     if (videoId || fullUrl) {
@@ -164,7 +164,7 @@ async function parse(shareUrl) {
             return normalizeBrowserResult(br, videoId);
           });
         },
-        timeout: 30000,
+        timeout: 60000,
       });
     }
 
@@ -193,7 +193,7 @@ async function parse(shareUrl) {
     const cleanUrl = videoId
       ? `https://www.douyin.com/video/${videoId}`
       : targetUrl.split('?')[0]; // 无 videoId 时仅保留 path
-    const luxResult = await withTimeout(parseViaLux(cleanUrl), 20000, 'lux');
+    const luxResult = await withTimeout(parseViaLux(cleanUrl), 45000, 'lux');
     if (luxResult.success) {
       cacheSet(cacheKey, luxResult);
       return luxResult;
