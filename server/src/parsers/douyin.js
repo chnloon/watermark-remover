@@ -38,7 +38,8 @@ function getLastDiagnostics() {
 // 同一视频重复解析时直接命中，避免全链路重跑（省时 + 降低平台风控压力）
 // ============================================================
 const CACHE_MAX_ENTRIES = 500;          // 最多缓存 500 条
-const CACHE_TTL_MS = 3 * 60 * 1000;    // TTL 3 分钟（抖音签名视频 URL 有效期很短，缓存太久会返回过期链接）
+const CACHE_TTL_MS = 60 * 60 * 1000;   // TTL 1 小时（2026-08-28 实测：抖音 CDN 对象级有效期月级 X-Oss-Expiration≈1 年、
+                                       // URL 生成 24h 前仍被 CDN 缓存命中 200；3 分钟太保守，同视频 1 小时内重复解析秒回）
 const resultCache = new Map();          // key(videoId|url) -> { data, expiresAt }
 
 function cacheGet(key) {

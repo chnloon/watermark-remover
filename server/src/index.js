@@ -231,12 +231,11 @@ app.get('/proxy/video', mediaLimiter, requireValidToken, async (req, res) => {
 // wx.downloadFile + wx.saveVideoToPhotosAlbum / wx.saveImageToPhotosAlbum
 // 通过后端中转：补 Referer/UA 请求头，避免平台防盗链拦截
 
-app.get('/api/download', mediaLimiter, requireValidToken, async (req, res) => {
-  const fileUrl = req.query.url;
-  if (!fileUrl) {
-    return res.status(400).json({ success: false, error: '缺少 url 参数' });
-  }
-
+/**
+ * 下载主体（可重试）
+ * 抖音等签名 URL 过期时，若请求带 share 原始分享链接，自动重新解析一次再下载（限重试 1 次防循环）
+ */
+async function streamMediaDownload(req, res, fileUrl, shareUrl, attempt) {
   try {
     const decodedUrl = decodeURIComponent(fileUrl);
 
@@ -325,11 +324,45 @@ app.get('/api/download', mediaLimiter, requireValidToken, async (req, res) => {
 
     dl.stream.pipe(res);
   } catch (err) {
+    // 签名 URL 过期自愈：带原始分享链接时重新解析一次再下载（限 1 次防循环）
+    if (shareUrl && attempt < 2) {
+      console.log(`[下载] 失败(${err.message})，尝试基于原始链接重新解析后重试`);
+      try {
+        const { detectPlatform, extractUrl } = require('./utils/url');
+        const parsers = {
+          douyin: require('./parsers/douyin'),
+          kuaishou: require('./parsers/kuaishou'),
+          xiaohongshu: require('./parsers/xiaohongshu'),
+        };
+        const cleanUrl = extractUrl(String(shareUrl));
+        const platform = detectPlatform(cleanUrl);
+        const parser = parsers[platform];
+        if (parser) {
+          const fresh = await parser.parse(cleanUrl);
+          if (fresh && fresh.success && fresh.data && fresh.data.videoUrl) {
+            console.log(`[下载] 重新解析成功，使用新链接重试（第 ${attempt + 1} 次）`);
+            return streamMediaDownload(req, res, fresh.data.videoUrl, shareUrl, attempt + 1);
+          }
+        }
+      } catch (re) {
+        console.error('[下载] 自动重解析失败:', re.message);
+      }
+    }
+
     // 脱敏：SSRF 拦截(400)与内部错误(502)统一为通用文案，不泄露内部信息
     const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
     console.error('[下载] 失败:', err.message);
     res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '下载失败，请重新解析后重试' });
   }
+}
+
+app.get('/api/download', mediaLimiter, requireValidToken, async (req, res) => {
+  const fileUrl = req.query.url;
+  if (!fileUrl) {
+    return res.status(400).json({ success: false, error: '缺少 url 参数' });
+  }
+  const shareUrl = req.query.share || '';
+  await streamMediaDownload(req, res, fileUrl, shareUrl, 1);
 });
 
 // 404 处理
