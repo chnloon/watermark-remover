@@ -230,8 +230,23 @@ async function callTikTokApi(url, platform, provider) {
  * 响应: { code: 200, msg: "解析成功-esa", data: { title, desc, author{name,avatar},
  *        cover, url, quality, duration, video_backup, images, video_id } }
  * ⚠️ 不支持 JSON body POST（会 400），必须 GET query 或表单
+ *
+ * 429 限流保护：BugPk 对数据中心/共享 IP 有短时限流（实测约 1-3 分钟窗口），
+ * 一次解析的并行路 + fallback 路可能各调一次，短时间多次调用会触发 429。
+ * 因此：遇 429 即进入模块级冷却（期间快速失败，不再浪费请求），
+ * 非 429 的网络错误才重试一次。
  */
+let bugpkCooldownUntil = 0;
+const BUGPK_COOLDOWN_MS = 90000;
+
 async function callBugPkApi(url, platform, provider) {
+  const now = Date.now();
+  if (now < bugpkCooldownUntil) {
+    throw new Error(
+      `bugpk 限流冷却中，剩余 ${Math.ceil((bugpkCooldownUntil - now) / 1000)}s`
+    );
+  }
+
   const endpoint =
     (provider.bugpk && provider.bugpk.endpoint) ||
     provider.endpoint ||
@@ -241,21 +256,24 @@ async function callBugPkApi(url, platform, provider) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     Referer: 'https://api.bugpk.com/doc-douyin.html',
   };
+  const request = () =>
+    axios.get(endpoint, {
+      params: { url },
+      headers,
+      timeout: 30000,
+    });
 
   let response;
   try {
-    response = await axios.get(endpoint, {
-      params: { url },
-      headers,
-      timeout: 30000,
-    });
+    response = await request();
   } catch (err) {
-    // 偶发 20s 慢响应/超时，重试一次
-    response = await axios.get(endpoint, {
-      params: { url },
-      headers,
-      timeout: 30000,
-    });
+    const status = err.response && err.response.status;
+    if (status === 429) {
+      bugpkCooldownUntil = Date.now() + BUGPK_COOLDOWN_MS;
+      throw new Error('bugpk 限流(429)，已进入 90s 冷却');
+    }
+    // 偶发 20s 慢响应/超时（非限流），重试一次
+    response = await request();
   }
 
   const data = response.data;
