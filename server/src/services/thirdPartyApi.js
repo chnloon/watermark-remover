@@ -37,6 +37,8 @@ async function parseViaThirdParty(url, platform) {
       return await callCustomApi(url, platform, provider);
     case 'tiktokapi':
       return await callTikTokApi(url, platform, provider);
+    case 'bugpk':
+      return await callBugPkApi(url, platform, provider);
     default:
       throw new Error(`未知的 API 类型: ${provider.type}`);
   }
@@ -218,6 +220,67 @@ async function callTikTokApi(url, platform, provider) {
         avatar: data.avatar || '',
       },
       type: data.type || 'video',
+    },
+  };
+}
+
+/**
+ * 调用 BugPk API（免费抖音/快手无水印解析，无需 key）
+ * 接口: GET https://api.bugpk.com/api/douyin?url=<encodeURIComponent(分享链接)>
+ * 响应: { code: 200, msg: "解析成功-esa", data: { title, desc, author{name,avatar},
+ *        cover, url, quality, duration, video_backup, images, video_id } }
+ * ⚠️ 不支持 JSON body POST（会 400），必须 GET query 或表单
+ */
+async function callBugPkApi(url, platform, provider) {
+  const endpoint =
+    (provider.bugpk && provider.bugpk.endpoint) ||
+    provider.endpoint ||
+    'https://api.bugpk.com/api/douyin';
+  const headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    Referer: 'https://api.bugpk.com/doc-douyin.html',
+  };
+
+  let response;
+  try {
+    response = await axios.get(endpoint, {
+      params: { url },
+      headers,
+      timeout: 30000,
+    });
+  } catch (err) {
+    // 偶发 20s 慢响应/超时，重试一次
+    response = await axios.get(endpoint, {
+      params: { url },
+      headers,
+      timeout: 30000,
+    });
+  }
+
+  const data = response.data;
+  if (!data || data.code !== 200) {
+    throw new Error(`bugpk 解析失败: ${(data && data.msg) || '未知错误'}`);
+  }
+
+  const d = data.data || {};
+  const videoUrl = d.url || d.video_backup || '';
+  const images = d.images || [];
+  const isVideo = !!videoUrl;
+
+  return {
+    success: true,
+    data: {
+      title: d.title || d.desc || '',
+      coverUrl: d.cover || '',
+      videoUrl: isVideo ? videoUrl : '',
+      images: isVideo ? [] : images,
+      author: {
+        name: (d.author && d.author.name) || '',
+        avatar: (d.author && d.author.avatar) || '',
+      },
+      type: isVideo ? 'video' : images.length > 0 ? 'image' : 'video',
+      duration: d.duration || 0,
     },
   };
 }

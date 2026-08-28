@@ -28,7 +28,7 @@ const config = {
   // =========================================================
   // 自研免费链路已覆盖抖音/快手/小红书/M3U8/网页视频，无需配置
   // 如需付费兜底，在 server/.env 中设置 THIRD_PARTY_API_TYPE：
-  //   'layzz' | 'media-parser' | 'custom' | 'tiktokapi' | null
+  //   'layzz' | 'media-parser' | 'custom' | 'tiktokapi' | 'bugpk' | null
   thirdPartyApi: {
     // null = 不启用（自研链路正常工作）
     type: process.env.THIRD_PARTY_API_TYPE || null,
@@ -47,6 +47,11 @@ const config = {
     // 通用配置（type='custom' 或 type='tiktokapi' 时需要）
     apiKey: process.env.THIRD_PARTY_API_KEY || '',
     endpoint: process.env.THIRD_PARTY_ENDPOINT || '',
+
+    // BugPk 免费 API 配置（type='bugpk' 时需要；公开免费无需 key）
+    bugpk: {
+      endpoint: process.env.BUGPK_ENDPOINT || 'https://api.bugpk.com/api/douyin',
+    },
   },
 
   // =========================================================

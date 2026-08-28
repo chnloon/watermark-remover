@@ -167,6 +167,15 @@ async function parse(shareUrl) {
         timeout: 60000,
       });
     }
+    // 若配置了第三方 API（如 bugpk），并行发起——数据中心 IP 被抖音风控时的关键兜底
+    const thirdPartyConfig = require('../config').thirdPartyApi;
+    if (thirdPartyConfig && thirdPartyConfig.type) {
+      strategies.push({
+        name: '第三方',
+        run: () => parseViaThirdParty(targetUrl, 'douyin'),
+        timeout: 30000,
+      });
+    }
 
     // 并行执行所有策略，等全部 settle 后按优先级取第一个成功
     console.log(`[抖音] 并行发起 ${strategies.length} 路解析: ${strategies.map(s => s.name).join('/')}`);
