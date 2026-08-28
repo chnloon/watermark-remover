@@ -177,28 +177,33 @@ async function parse(shareUrl) {
       });
     }
 
-    // 并行竞速所有策略：任一成功立即返回（不被其他慢路拖累），全部失败则等 settle 后按优先级取成功
+    // 并行竞速所有策略：等"第一个成功"立即返回（不被失败路/慢路拖累），全失败则等全部 settle
     console.log(`[抖音] 并行发起 ${strategies.length} 路解析: ${strategies.map(s => s.name).join('/')}`);
     const settledPromises = strategies.map((s) =>
       withTimeout(s.run(), s.timeout, s.name).then((result) => ({ result, name: s.name }))
     );
 
-    let winner = null;
-    const first = await Promise.race(settledPromises);
-    if (first.result.success) {
-      winner = first.result;
-    } else {
-      // 首个 settle 的是失败路——等全部 settle，按策略顺序取第一个成功
-      const all = await Promise.all(settledPromises);
-      const ordered = all.map(({ result }, idx) => ({ result, name: strategies[idx].name }));
-      ordered.forEach(({ result, name }) => {
-        if (!result.success) {
-          failReasons.push(`${name}:${result.error || '失败'}`);
-        } else if (!winner) {
-          winner = result;
-        }
+    // firstSuccess: 任一成功即 resolve，全部失败 resolve(null)；失败原因经 onFail 收集
+    const firstSuccess = (promises, onFail) =>
+      new Promise((resolve) => {
+        let done = false;
+        Promise.all(
+          promises.map((p) =>
+            p.then(({ result, name }) => {
+              if (result.success) {
+                if (!done) { done = true; resolve({ result, name }); }
+              } else if (onFail) {
+                onFail({ result, name });
+              }
+            })
+          )
+        ).then(() => { if (!done) resolve(null); });
       });
-    }
+
+    const raced = await firstSuccess(settledPromises, ({ result, name }) => {
+      failReasons.push(`${name}:${result.error || '失败'}`);
+    });
+    const winner = raced ? raced.result : null;
 
     if (winner) {
       cacheSet(cacheKey, winner);
