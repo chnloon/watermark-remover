@@ -15,13 +15,6 @@ Page({
     showSkeleton: false,
     autoFocus: false,
 
-    // 平台列表 — 钢印风格 LOGO
-    platforms: [
-      { id: 'douyin', name: '抖音', image: '/images/douyin.svg' },
-      { id: 'kuaishou', name: '快手', image: '/images/kuaishou.svg' },
-      { id: 'xiaohongshu', name: '小红书', image: '/images/xiaohongshu.svg' },
-    ],
-
     // 动态布局间距（适配异形屏/Android）
     topPadding: 0,
     bottomPadding: 0,
@@ -232,9 +225,9 @@ Page({
 
       if (!result.success) {
         this.setData({ isLoading: false });
-        // 抖音解析失败：平台风控限制（服务器无法访问抖音），给出明确提示
+        // 短视频解析失败：平台风控限制（服务器无法访问该平台），给出明确提示
         if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
-          this.showError('抖音解析暂时不可用（平台限制），可尝试快手/小红书/网页视频', url);
+          this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', url);
         } else {
           this.showError(result.error || '解析失败，请检查链接是否有效', url);
         }
