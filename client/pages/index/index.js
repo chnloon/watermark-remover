@@ -140,6 +140,17 @@ Page({
    */
   async onPaste() {
     try {
+      // 主动请求隐私授权；失败不阻断——继续调 getClipboardData，
+      // 由它触发隐私弹窗（后台指引生效时），或自行失败再降级
+      if (wx.requirePrivacyAuthorize) {
+        try {
+          await new Promise((resolve, reject) => {
+            wx.requirePrivacyAuthorize({ success: resolve, fail: reject });
+          });
+        } catch (e) {
+          console.warn('[粘贴] requirePrivacyAuthorize 未通过，继续尝试读取剪贴板:', e);
+        }
+      }
       const res = await wx.getClipboardData({});
       if (res.data) {
         isPasteButtonClick = true;
@@ -152,8 +163,32 @@ Page({
         app.showToast('剪贴板为空');
       }
     } catch (err) {
-      app.showToast('读取剪贴板失败');
+      // 真机调试时可在 Console 查看具体 errMsg（如隐私未授权）
+      console.error('[粘贴] 读取剪贴板失败:', err);
+      this.showClipboardFallback(err);
     }
+  },
+
+  /**
+   * 剪贴板读取失败降级 — 聚焦输入框，引导用户长按手动粘贴
+   * 隐私未授权时直接给出根因与解法，避免用户反复试错
+   */
+  showClipboardFallback(err) {
+    const msg = (err && (err.errMsg || err.message)) || '';
+    let content = '请长按下方输入框，选择"粘贴"后点击解析。';
+    if (/privacy|auth/i.test(msg)) {
+      content = '未获得剪贴板授权：请确认小程序后台「用户隐私保护指引」已通过审核且声明了「剪贴板」，并在授权弹窗点击「同意并继续」。也可长按下方输入框手动粘贴。';
+    }
+    wx.showModal({
+      title: '无法读取剪贴板',
+      content,
+      showCancel: false,
+      confirmText: '好的',
+      success: () => {
+        // 聚焦输入框，方便用户直接长按粘贴
+        this.setData({ autoFocus: true });
+      },
+    });
   },
 
   /**
@@ -219,7 +254,10 @@ Page({
       if (msg.includes('timeout') || msg.includes('超时')) {
         this.showError('请求超时，请检查网络后重试', url);
       } else if (msg.includes('网络')) {
-        this.showError('网络连接异常，请检查网络设置', url);
+        // 真机最常见的根因：后台未配置服务器域名（request/downloadFile），
+        // 微信拦截后 errMsg 为 "url not in domain list"
+        const hint = msg.includes('domain') ? '（未配置合法域名，请在小程序后台添加 https://yc0717.cc）' : '';
+        this.showError('网络连接异常，请检查网络设置' + hint, url);
       } else {
         this.showError(msg + '，请稍后重试', url);
       }

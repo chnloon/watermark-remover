@@ -38,7 +38,7 @@
     <view class="agree-section">
       <text class="agree-section__title">四、版权声明与免责声明</text>
       <text class="agree-section__text">1. 所有解析内容的著作权、商标权及其他合法权益归原作者或相关平台所有，本小程序不主张任何所有权。</text>
-      <text class="agree-section__text">2. 如您认为相关内容的展示或保存侵犯了您的合法权益，请通过下方联系方式与我们联系，我们将在核实后尽快处理。</text>
+      <text class="agree-section__text">2. 如您认为相关内容的展示或保存侵犯了您的合法权益，请联系我们，我们将在核实后尽快处理。</text>
       <text class="agree-section__text">3. 第三方平台可能随时调整其数据接口，解析结果以平台实际返回为准，本小程序不对此作出任何保证。</text>
       <text class="agree-section__text">4. 您使用本服务即表示您已阅读并同意本协议全部内容；若不同意，请停止使用本小程序。</text>
     </view>
@@ -49,7 +49,6 @@
     </view>
 
     <view class="agree-footer">
-      <text class="agree-footer__text">联系方式：yc0717.cc（云川集）</text>
       <text class="agree-footer__text">协议版本：{{version}}</text>
     </view>
 

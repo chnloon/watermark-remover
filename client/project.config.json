@@ -48,12 +48,13 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.17.0",
-  "appid": "wx6af9c1f68a6bbd7e",
+  "appid": "wxd94e3365573a9785",
   "projectname": "云川集",
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
   },
-  "simulatorPluginLibVersion": {}
+  "simulatorPluginLibVersion": {},
+  "isGameTourist": false
 }

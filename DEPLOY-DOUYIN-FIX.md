@@ -1,99 +1,68 @@
-# 抖音解析线上修复 · 一键部署指引
+# 抖音解析线上部署指引（2026-08-28 最终版）
 
-> 适用：CVM `124.221.232.131`（yc0717.cc），pm2 进程 `link-parser`
-> 修复内容：① SSRF safeLookup 双根因（线上 proxy/download 一直超时/400 的元凶）② 多线程分段下载（IDM 模式，下载提速 ~1.85x）
-> 方法：把本指引整段复制到服务器终端执行即可（不需要改任何文件）
+> 适用：CVM `124.221.232.131`（yc0717.cc），**systemd** 服务 `watermark.service`（非 pm2）
+> 服务目录：`/home/ubuntu/watermark-server`（git 仓库，分支 master）
+> 目录结构：仓库根 = `/home/ubuntu/watermark-server`，服务代码在 `server/` 子目录（ExecStart=`/usr/bin/node src/index.js`，监听 3001）
 
 ---
 
-## 一、确认当前状态（先跑这条）
+## 一、当前状态确认
 
 ```bash
-cd ~/watermark-remover && git log --oneline -3 && pm2 describe link-parser | grep -E "script|status" 
+cd /home/ubuntu/watermark-server && git log --oneline -5
+systemctl is-active watermark.service   # 期望 active
 ```
 
-- 如果第一条输出里有 `c8298c6 🐛 修复抖音解析线上失效` → 代码已在服务器，跳到**第三步重启**。
-- 如果只有旧 commit → 走第二步拉取。
+线上 HEAD 应为 `91e7fb3`（见下"commit 链"）。若一致且服务 active，无需任何操作。
 
-## 二、拉取修复代码
+## 二、拉取 + 重启（部署新代码）
 
 ```bash
-cd ~/watermark-remover
-git pull origin master
-# 若提示冲突/失败，先看状态：git status（正常情况下是快速合并）
-git log --oneline -3   # 应看到 c8298c6
+cd /home/ubuntu/watermark-server
+git pull origin master          # 若网络失败可重试或走文末备选
+sudo -n systemctl restart watermark.service
+sleep 8
+systemctl is-active watermark.service   # 期望 active
 ```
 
-> 备选：如果 `git pull` 因网络失败，用本地仓库打包方式（见文末"备选方案"）。
+> 服务器 .env 已含 `THIRD_PARTY_API_TYPE=bugpk`、`JWT_SECRET`，无需重复追加。
 
-## 三、重启并验证
-
-```bash
-cd ~/watermark-remover/server
-pm2 restart link-parser --update-env
-sleep 2
-curl -s http://127.0.0.1:3001/health
-# 期望：{"status":"ok",...}
-```
-
-## 四、功能验证（抖音真实链接）
+## 三、功能验证（走真实域名）
 
 ```bash
-# 1) 解析
-curl -s -X POST http://127.0.0.1:3001/api/parse -H "Content-Type: application/json" \
-  -d '{"url":"https://v.douyin.com/oQFkA0LBqZ0/"}' | head -c 300; echo
-
-# 2) 下载（多线程模式，应秒回且文件完整）
-VIDEO_URL=$(curl -s -X POST http://127.0.0.1:3001/api/parse -H "Content-Type: application/json" \
-  -d '{"url":"https://v.douyin.com/oQFkA0LBqZ0/"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['videoUrl'])")
-echo "videoUrl: ${VIDEO_URL:0:80}..."
-curl -s --max-time 30 -o /tmp/dl_test.mp4 "http://127.0.0.1:3001/api/download?url=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$VIDEO_URL")"
-ls -l /tmp/dl_test.mp4
-file /tmp/dl_test.mp4   # 应输出 MP4
-```
-
-## 五、全站回归（可选）
-
-```bash
-# 小程序真实请求链路（走 nginx + 域名）
+# 抖音（期望 success:true 且 <5s；bugpk 竞速命中）
 curl -s -X POST https://yc0717.cc/api/parse -H "Content-Type: application/json" \
-  -d '{"url":"https://v.douyin.com/oQFkA0LBqZ0/"}' | head -c 200; echo
+  -d '{"url":"https://v.douyin.com/tX_VyPi--VA/"}' | head -c 300; echo
+# 快手 / 小红书同理（v.kuaishou.com/Kn6Di5mX / xhslink.cn/o/84w7S1yfoft）
 ```
 
----
+2026-08-28 实测：抖音 **978ms** success:true、快手 2151ms、小红书 671ms——三平台全部 <3s。
 
-## 修复了什么（背景，供知悉）
+## 四、commit 链（本次部署内容）
 
-| 问题 | 根因 | 修复 |
-|---|---|---|
-| 线上 proxy/download 一直 30s 超时 | `ssrf.js` 把 `dns.promises.lookup` 当回调版调用，回调永不触发 → 永远等 DNS | 改用 `dns.promises` 正确调用（`server/src/utils/ssrf.js`） |
-| 超时修复后全部 400"链接地址不可访问" | Node 传 `all:true` 时 lookup 返回**地址数组**，旧代码对数组一律判危险 | 数组逐项校验后放行 |
-| 下载慢（CDN 单连接限速） | 抖音 CDN 单连接约 24MB/s | 多线程分段下载（4 并发 ~44MB/s，实测 1.85x），自动回退单连接（`server/src/utils/multiDownload.js`） |
-| 偶发浏览器 GC/崩溃 | 内存不足 | 浏览器进程内存加固 + 失败重建重试一次 |
-| 签名 URL 缓存过期 | 抖音签名 3-5 分钟失效 | 缓存 TTL 30min→3min |
+| commit | 内容 |
+|---|---|
+| `c8298c6` | SSRF 双根因修复 + 多线程分段下载（IDM 模式） |
+| `c4d38de` | BugPk 免费第三方 API 兜底（数据中心 IP 被抖音风控的关键兜底） |
+| `bb9ca44` | bugpk 429 短时限流保护：90s 模块级冷却 + 仅非限流错误重试 |
+| `59935f7` | 抖音解析改并行竞速（先行版，已废弃） |
+| `4373960` | 并行改 **firstSuccess 竞速**：任一策略成功立即返回，全失败才等全部 settle（60.9s→<5s 的关键） |
+| `91e7fb3` | **修复 4373960 引入的 ReferenceError**（竞速命中日志引用未定义变量 `first`） |
 
-## 备选方案（git pull 网络失败时）
+> ⚠️ 经验教训：`4373960` 曾因日志行残留 `first` 变量，导致**竞速命中即抛错**、线上表现为"快速失败 success:false"。`91e7fb3` 修复后竞速路径才真正可用。
 
-在**本地电脑**执行（生成一个补丁包文件）：
+## 五、已知边界（知悉即可）
 
-```powershell
-cd E:\watermark-remover
-git format-patch 1e585af..HEAD --stdout > douyin-fix.patch
-```
-
-把 `douyin-fix.patch` 上传到 CVM（任意方式：宝塔文件管理/微信传文件/FTP），然后：
-
-```bash
-cd ~/watermark-remover
-git apply /path/to/douyin-fix.patch
-# 然后从"第三步重启"继续
-```
+- **bugpk 短时限流**：CVM IP 连打会 429（实测 5 次连发后触发），服务有 90s 冷却保护，冷却中该路快速失败走 lux/其他兜底。
+- **bugpk 冷连接慢**：首次调用约 9s（DNS/握手），之后 0.2s——竞速不受影响（有 30s 超时）。
+- **浏览器路在服务器 60s 超时**：数据中心 IP 反爬，正常现象，竞速保证不被它拖累。
+- 无 videoId 的畸形 URL（如 `/video/` 空 ID）会快速失败返回"抖音解析暂时不可用"——真实用户场景（app 分享短链）不受影响。
 
 ---
 
 ## 回滚（万一需要）
 
 ```bash
-cd ~/watermark-remover
-git reset --hard 1e585af && cd server && pm2 restart link-parser
+cd /home/ubuntu/watermark-server
+git reset --hard <旧commit> && sudo -n systemctl restart watermark.service
 ```
