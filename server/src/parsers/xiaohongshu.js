@@ -462,15 +462,24 @@ function findNoteInState(state) {
 /**
  * 从视频 stream 对象中提取可播放直链
  *
- * 2024+ 结构：stream.h264[0].masterUrl（h264/h265/av1/h266 按编码分组）
+ * 2024+ 结构：stream.h264 / stream.h265 / stream.av1 / stream.h266（按编码分组，每组可多档）
  * 旧结构兜底：stream.master_url / stream[0].url
  *
- * 优先级：h264（兼容性最好）→ h265 → av1 → 旧字段
+ * 水印规律：小红书把水印压进 H.264 档（streamType 259 / MINI_APP_259），
+ * HEVC/H.265 档（streamType 309 / X265_MP4_WEB_309）为无水印源，且分辨率相同。
+ * 优先级：h265(309) 无水印 → h264 → av1 → 旧字段
  */
 function extractVideoUrl(stream) {
   if (!stream || typeof stream !== 'object') return '';
 
-  for (const codec of ['h264', 'h265', 'av1', 'h266']) {
+  // 优先无水印档：h265（HEVC），优先取 309 档
+  if (Array.isArray(stream.h265) && stream.h265.length) {
+    const target = stream.h265.find((g) => g && (g.streamType === 309 || /(^|_)309($|_)/.test(g.streamDesc || '')));
+    const first = target || stream.h265[0];
+    if (first && first.masterUrl) return first.masterUrl;
+  }
+
+  for (const codec of ['h264', 'av1', 'h266']) {
     const group = stream[codec];
     if (Array.isArray(group) && group.length) {
       const first = group[0];
