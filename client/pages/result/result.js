@@ -18,8 +18,9 @@ Page({
     currentUrl: '',
     autoFocus: false,
     hasVideoUrl: false,
-    // 预览固定走"流畅"转码流（480p，省流更顺）；转码失败自动回落原画
-    lowVideoUrl: '',
+    // 预览默认播原画直链（服务器纯反代秒开）；转码流仅作原画失败时的弱网兜底
+    fallbackVideoUrl: '',
+    playingFallback: false,
     selectedImages: [],
     selectedCount: 0,
     allSelected: false,
@@ -45,8 +46,9 @@ Page({
       selectedCount: 0,
       allSelected: false,
       imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
-      // 预览固定使用"流畅"转码流（省流更顺；下载仍为原画直链）
-      lowVideoUrl: this._buildLowVideoUrl(result),
+      // 预览默认播原画直链（秒开）；转码流存为兜底，仅原画播放失败时启用
+      fallbackVideoUrl: this._buildLowVideoUrl(result),
+      playingFallback: false,
     });
 
     // 保存到历史记录
@@ -67,6 +69,7 @@ Page({
 
   /**
    * 生成"流畅模式"转码地址（后端 ffmpeg 实时转 480p 低码率）
+   * 仅作原画播放失败时的弱网兜底，不参与默认播放
    */
   _buildLowVideoUrl(result) {
     const videoUrl = result && result.data && result.data.videoUrl;
@@ -79,10 +82,7 @@ Page({
    */
   preloadVideo(result) {
     if (!result || !result.data || result.data.type !== 'video') return;
-    // 默认播放"流畅"转码流：转码是实时生成的，没有 CDN 预热概念，
-    // 预取只会白白多拉起一次 ffmpeg 转码进程，故直接跳过
-    if (this.data.lowVideoUrl) return;
-    // 预取用原始 videoUrl（proxyVideoUrl 本身就是代理地址，再套一层会二次代理）
+    // 预览默认播原画直链，预取前 256KB 能明显减少首帧等待（避免播放器整段拉流才起播）
     const videoUrl = result.data.videoUrl;
     if (!videoUrl) return;
 
@@ -207,8 +207,9 @@ Page({
           selectedCount: 0,
           allSelected: false,
           imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
-          // 重新解析后重新生成"流畅"转码地址
-          lowVideoUrl: this._buildLowVideoUrl(result),
+          // 重新解析后重新生成"流畅"转码地址（仅作弱网兜底，默认仍播原画）
+          fallbackVideoUrl: this._buildLowVideoUrl(result),
+          playingFallback: false,
         });
 
         this.saveToHistory(result);
@@ -301,18 +302,18 @@ Page({
 
   /**
    * 视频播放错误时，尝试切换源
+   * 源优先级: 原画代理(秒开) → 流畅转码流(弱网兜底) → 直链 → 错误 UI
    */
   onVideoError(e) {
     console.error('视频播放失败:', e.detail);
-    // 流畅（转码）流失败时自动回落到高清原画，避免一直停在错误状态
-    // （服务器未装 ffmpeg 或转码出错时，转码流会返回 502）
-    if (this.data.lowVideoUrl) {
+    // 原画播放失败（多为弱网高码率抖动/防盗链）→ 自动回落流畅转码流
+    // 页面内状态文字轻提示，不弹窗打断观看
+    if (this.data.fallbackVideoUrl && !this.data.playingFallback) {
       this.setData({
-        lowVideoUrl: '',
-        videoStatus: '流畅模式暂不可用，已切换高清',
+        playingFallback: true,
+        videoStatus: '已切换为流畅模式',
         videoError: false,
       });
-      app.showToast('已自动切换为高清模式');
       return;
     }
     const resultData = this.data.resultData;
@@ -349,6 +350,7 @@ Page({
       resultData: resultData,
       videoStatus: '正在重新加载...',
       videoError: false,
+      playingFallback: false,
     });
   },
 

@@ -147,6 +147,11 @@
   justify-content: center;
 }
 
+.media-card__loading-text {
+  font-size: 24rpx;
+  color: #565b6a;
+}
+
 .media-card__status-error {
   display: flex;
   flex-direction: column;

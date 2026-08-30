@@ -37,7 +37,7 @@
         <video
           wx:if="{{hasVideoUrl}}"
           class="media-card__video"
-          src="{{lowVideoUrl ? lowVideoUrl : (resultData.data.proxyVideoUrl || resultData.data.videoUrl)}}"
+          src="{{playingFallback ? fallbackVideoUrl : (resultData.data.proxyVideoUrl || resultData.data.videoUrl)}}"
           controls
           autoplay="{{false}}"
           object-fit="contain"
@@ -46,6 +46,10 @@
           bindready="onVideoReady"
           binderror="onVideoError"
         />
+        <!-- 加载/切源状态（页面内轻提示，不弹窗打断观看） -->
+        <view wx:if="{{videoStatus}}" class="media-card__status-loading">
+          <text class="media-card__loading-text">{{videoStatus}}</text>
+        </view>
         <!-- 无视频地址兜底：浅色占位，避免空 src 黑底 -->
         <view wx:else class="media-card__video-placeholder">
           <text class="video-status">视频地址缺失，请重新解析</text>
