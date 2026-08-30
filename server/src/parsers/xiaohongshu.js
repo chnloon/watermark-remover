@@ -99,6 +99,322 @@ function extractBestImageUrl(img) {
 }
 
 /**
+ * 判断视频 URL 是否为无水印档
+ *
+ * 小红书无水印档特征（H.265/HEVC，streamType 309）：
+ *   https://sns-video-qc.xhscdn.com/stream/1/110/309/<fileId>_309.mp4?sign=...
+ * 带水印档为 H.264（streamType 259 / MINI_APP_259），URL 不含 309。
+ * 另外 master.json 是 h265 流媒体清单，同样无水印。
+ */
+function isNoWatermarkUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  return (
+    /stream\/\d+\/\d+\/309\//i.test(url) ||
+    /_309(\.mp4|\.m3u8|\?|$)/i.test(url) ||
+    /master\.json/i.test(url)
+  );
+}
+
+/**
+ * 从页面 HTML 中提取 window.__INITIAL_STATE__ 数据
+ *
+ * 不能用正则 `{[\s\S]*?};` 匹配 —— SSR JSON 内嵌字符串（如 launchAppConfig）会截断。
+ * 用括号配平 + 字符串状态跟踪，并清洗 SSR 内嵌的 undefined。
+ * 若某处标记解析失败（多半是 HTML 转义脚本），继续找下一个标记位置。
+ */
+function extractInitialState(html) {
+  if (!html || typeof html !== 'string') return null;
+  const marker = 'window.__INITIAL_STATE__=';
+  let searchFrom = 0;
+  while (searchFrom < html.length) {
+    const markerIdx = html.indexOf(marker, searchFrom);
+    if (markerIdx < 0) return null;
+    const seg = html.slice(markerIdx + marker.length);
+    try {
+      let depth = 0;
+      let end = -1;
+      let inStr = false;
+      let esc = false;
+      for (let j = 0; j < seg.length; j++) {
+        const c = seg[j];
+        if (inStr) {
+          if (esc) esc = false;
+          else if (c === '\\') esc = true;
+          else if (c === '"') inStr = false;
+          continue;
+        }
+        if (c === '"') { inStr = true; continue; }
+        if (c === '{') depth++;
+        else if (c === '}') { depth--; if (depth === 0) { end = j; break; } }
+      }
+      if (end > 0) {
+        const json = seg
+          .slice(0, end + 1)
+          .replace(/:\s*undefined\b/g, ':null')
+          .replace(/,\s*undefined\b/g, ',null');
+        return JSON.parse(json);
+      }
+    } catch (e) { /* 该位置解析失败，尝试下一个标记 */ }
+    searchFrom = markerIdx + marker.length;
+  }
+  return null;
+}
+
+/**
+ * 抓取小红书笔记页面 HTML（可选携带 Cookie 重试）
+ *
+ * @returns {Promise<{html: string, cookieStr: string|null, error: string|null}>}
+ */
+async function fetchNoteHtml(url, cookieStr) {
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+        'Referer': 'https://www.xiaohongshu.com/',
+        ...(cookieStr ? { Cookie: cookieStr } : {}),
+      },
+      timeout: 15000,
+    });
+
+    const rateLimitCheck = detectRateLimit(response.data, response.status);
+    if (rateLimitCheck) {
+      return { html: '', cookieStr: null, error: rateLimitCheck };
+    }
+
+    const setCookies = response.headers['set-cookie'];
+    return {
+      html: response.data,
+      cookieStr: setCookies ? extractCookies(setCookies) : null,
+      error: null,
+    };
+  } catch (err) {
+    return { html: '', cookieStr: null, error: err.message };
+  }
+}
+
+/**
+ * 把带水印的视频源升级为无水印源（H.265 309 档）
+ *
+ * 思路：重新抓取视频所在笔记页面，走 findNoteInState + extractVideoUrl
+ * 拿 309 无水印档。任何一步失败返回 null（调用方据此拦截，
+ * 绝不把带水印源放进预览）。
+ */
+async function upgradeToNoWatermark(videoUrl, pageUrl) {
+  if (isNoWatermarkUrl(videoUrl)) return videoUrl;
+  try {
+    const fullUrl = await resolveShortUrl(pageUrl);
+    if (!fullUrl) return null;
+
+    let fetched = await fetchNoteHtml(fullUrl);
+    let initialState = fetched.html ? extractInitialState(fetched.html) : null;
+
+    // 首次请求拿到新 Cookie 但 SSR 不完整时，带 Cookie 重试一次
+    if (!initialState && fetched.cookieStr) {
+      const retry = await fetchNoteHtml(fullUrl, fetched.cookieStr);
+      if (retry.html) initialState = extractInitialState(retry.html);
+    }
+
+    if (!initialState) return null;
+    const note = findNoteInState(initialState);
+    if (!note || !note.video || !note.video.media || !note.video.media.stream) return null;
+    const cleanUrl = extractVideoUrl(note.video.media.stream);
+    return isNoWatermarkUrl(cleanUrl) ? cleanUrl : null;
+  } catch (err) {
+    console.error('[小红书] 无水印源升级失败:', err.message);
+    return null;
+  }
+}
+
+/**
+ * 无水印门禁：任何成功结果返回前必须过此关
+ *
+ * 规则：
+ *  - 图片笔记 / 无视频地址：原样放行
+ *  - 视频地址已是无水印档（309）：放行
+ *  - 带水印：尝试升级为 309；升级失败 → 返回明确错误（绝不带水印进预览）
+ */
+async function guardNoWatermark(result, shareUrl) {
+  if (!result || !result.success || !result.data) return result;
+  const d = result.data;
+  if (d.type !== 'video' || !d.videoUrl) return result;
+  if (isNoWatermarkUrl(d.videoUrl)) return result;
+
+  const upgraded = await upgradeToNoWatermark(d.videoUrl, shareUrl);
+  if (upgraded) {
+    d.videoUrl = upgraded;
+    return result;
+  }
+
+  console.error('[小红书] 拦截带水印视频源:', d.videoUrl);
+  return {
+    success: false,
+    platform: 'xiaohongshu',
+    error: '当前线路仅能获取到带水印的视频，为避免水印已拦截。请稍后重试，或联系管理员检查服务器解析线路配置（route-state.json 应保持 auto）',
+  };
+}
+
+/**
+ * 第三方结果出口统一处理：先过无水印门禁，再清洗图片直链
+ */
+async function finalizeThirdParty(thirdPartyResult, shareUrl) {
+  if (!thirdPartyResult || !thirdPartyResult.success) return thirdPartyResult;
+  const guarded = await guardNoWatermark(thirdPartyResult, shareUrl);
+  return sanitizeThirdPartyImages(guarded);
+}
+
+/**
+ * 解析小红书笔记页面 HTML，提取标题/图片/视频信息
+ *
+ * 视频地址优先取 stream 中的无水印档（H.265 309），页面 og:video 多为
+ * 带水印的 H.264 档，仅作 stream 缺失时的兜底；兜底命中带水印源时
+ * 由 guardNoWatermark 负责升级或拦截。
+ */
+async function parseNoteHtml(html, url, cookieStr) {
+  const $ = cheerio.load(html);
+
+  // 从页面中提取笔记标题
+  const title = $('title').text().replace(' - 小红书', '') || $('meta[property="og:title"]').attr('content') || '';
+
+  // 尝试提取 JSON-LD 数据
+  let noteData = null;
+  $('script[type="application/ld+json"]').each((i, el) => {
+    try {
+      const data = JSON.parse($(el).html());
+      if (data && data.description) {
+        noteData = data;
+      }
+    } catch (e) { /* ignore */ }
+  });
+
+  // 从页面中提取图片列表（清洗缩略图后缀，取原图）
+  const images = [];
+  $('img').each((i, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
+      const clean = toPublicImageUrl(cleanImageUrl(src));
+      if (clean) images.push(clean);
+    }
+  });
+
+  // 从 meta 标签提取信息
+  const description = $('meta[name="description"]').attr('content') || '';
+  const ogImage = $('meta[property="og:image"]').attr('content') || '';
+  const ogVideo = $('meta[property="og:video"]').attr('content') || '';
+  const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
+
+  // 从页面中提取 window.__INITIAL_STATE__ 数据
+  const initialState = extractInitialState(html);
+
+  // 尝试从 initialState 中提取视频/图片信息
+  // 视频地址优先取 stream 中的无水印档（H.265 309），
+  // 页面 og:video 多为带水印的 H.264 档，仅作 stream 缺失时的兜底
+  let videoUrl = '';
+  let noteTitle = '';
+  let authorName = '';
+  let coverFromState = '';
+  // SSR 图片列表（原图直链）—— 优先于页面 <img> 扫描
+  let stateImages = [];
+  if (initialState) {
+    // 遍历查找笔记对象（视频笔记取 video.stream，图片笔记取 imageList）
+    try {
+      const note = findNoteInState(initialState);
+      if (note) {
+        noteTitle = note.title || note.desc || '';
+        authorName = note.user && note.user.nickName ? note.user.nickName : '';
+        if (note.cover && note.cover.fileId) {
+          coverFromState = toPublicImageUrl(cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`));
+        }
+        // 视频笔记：从 stream 提取无水印源（309 档优先）
+        if (note.video && note.video.media && note.video.media.stream) {
+          videoUrl = extractVideoUrl(note.video.media.stream);
+        }
+        // 图片笔记：从 imageList 提取原图直链
+        // 小红书 2024+ 结构: note.imageList[] → { urlDefault | infoList[].image.url }
+        if (Array.isArray(note.imageList)) {
+          for (const img of note.imageList) {
+            if (!img) continue;
+            // 提取最高清版本并清洗缩略图后缀（取原图分辨率）
+            const rawUrl = extractBestImageUrl(img);
+            const imgUrl = toPublicImageUrl(cleanImageUrl(rawUrl));
+            if (imgUrl) {
+              stateImages.push(imgUrl);
+            }
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // stream 提取失败时兜底用 og:video（带水印档，由无水印门禁升级或拦截）
+  if (!videoUrl) {
+    videoUrl = ogVideo || ogVideoUrl;
+  }
+
+  // 微信要求 https，xhscdn 直链为 http，统一转 https
+  if (videoUrl && videoUrl.startsWith('http://')) {
+    videoUrl = videoUrl.replace(/^http:\/\//, 'https://');
+  }
+
+  // 如果 __INITIAL_STATE__ 提取到但无视频/图片，可能是 SSR 数据不完整
+  // 尝试使用 Cookie 重新请求（若有新 Cookie）
+  if (!initialState && !ogImage && !images.length && !videoUrl && cookieStr) {
+    const retry = await fetchNoteHtml(url, cookieStr);
+    if (retry.html) {
+      return await parseNoteHtml(retry.html, url, retry.cookieStr || cookieStr);
+    }
+  }
+
+  // 判断类型
+  const isVideo = !!videoUrl;
+
+  if (isVideo) {
+    return await guardNoWatermark({
+      success: true,
+      platform: 'xiaohongshu',
+      data: {
+        title: noteTitle || title || description || '',
+        coverUrl: toPublicImageUrl(ogImage) || coverFromState || (images.length > 0 ? images[0] : ''),
+        videoUrl: videoUrl,
+        noteId: extractNoteId(url),
+        source: 'xiaohongshu',
+        type: 'video',
+        description: description,
+        author: authorName ? { name: authorName } : undefined,
+      },
+    }, url);
+  }
+
+  // 图片笔记
+  // 合并 SSR 原图列表 + 页面扫描图（去重），SSR 原图优先
+  const allImages = [];
+  const seenImg = new Set();
+  for (const u of [...stateImages, ...images]) {
+    if (u && !seenImg.has(u)) {
+      seenImg.add(u);
+      allImages.push(u);
+    }
+  }
+  const finalImages = allImages.length > 0 ? allImages : (ogImage ? [toPublicImageUrl(cleanImageUrl(ogImage))] : []);
+
+  return {
+    success: true,
+    platform: 'xiaohongshu',
+    data: {
+      title: title || noteTitle || description || '',
+      coverUrl: ogImage || coverFromState || (finalImages.length > 0 ? finalImages[0] : ''),
+      images: finalImages,
+      noteId: extractNoteId(url),
+      source: 'xiaohongshu',
+      type: 'image',
+      description: description,
+      text: $('meta[property="og:description"]').attr('content') || '',
+    },
+  };
+}
+
+/**
  * 解析小红书分享链接
  * @param {string} shareUrl
  * @returns {Promise<object>}
@@ -114,8 +430,8 @@ async function parse(shareUrl, options = {}) {
       // 仅第三方：直连链路故障时的快速止损，第三方结论即最终结论
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
-        return thirdPartyResult;
+        // 过无水印门禁：带水印源要么升级为 309 无水印档，要么拦截报错
+        return await finalizeThirdParty(thirdPartyResult, shareUrl);
       } catch (apiErr) {
         console.error('[小红书] 第三方线路失败:', apiErr.message);
         return {
@@ -130,7 +446,10 @@ async function parse(shareUrl, options = {}) {
       // 第三方优先：先走第三方，成功立即返回；失败回落直连链
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
+        if (thirdPartyResult.success) {
+          const guarded = await guardNoWatermark(thirdPartyResult, shareUrl);
+          return sanitizeThirdPartyImages(guarded);
+        }
         console.error('[小红书] 第三方优先失败:', thirdPartyResult.error);
       } catch (apiErr) {
         console.error('[小红书] 第三方优先失败:', apiErr.message);
@@ -153,7 +472,7 @@ async function parse(shareUrl, options = {}) {
 
     // 第三步：lux Go CLI 解析（在 Docker/CloudRun 环境中可用）
     const luxResult = await parseViaLux(fullUrl);
-    if (luxResult.success) return luxResult;
+    if (luxResult.success) return await guardNoWatermark(luxResult, fullUrl);
     console.error('[小红书] lux 解析失败:', luxResult.error);
 
     // 第四步：第三方 API 降级（仅 auto 模式；
@@ -161,7 +480,10 @@ async function parse(shareUrl, options = {}) {
     if (routeMode === 'auto') {
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
+        if (thirdPartyResult.success) {
+          const guarded = await guardNoWatermark(thirdPartyResult, shareUrl);
+          return sanitizeThirdPartyImages(guarded);
+        }
       } catch (apiErr) {
         console.error('[小红书] 第三方 API 也失败:', apiErr.message);
 
@@ -230,208 +552,15 @@ async function resolveShortUrl(url) {
  *   - 检测反爬/频率限制并给出友好提示
  */
 async function scrapeNoteContent(url) {
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Referer': 'https://www.xiaohongshu.com/',
-      },
-      timeout: 15000,
-    });
-
-    const html = response.data;
-
-    // 检测反爬/频率限制
-    const rateLimitCheck = detectRateLimit(html, response.status);
-    if (rateLimitCheck) {
-      return {
-        success: false,
-        platform: 'xiaohongshu',
-        error: rateLimitCheck,
-      };
-    }
-
-    // 提取响应中的 Cookie 以备可能的 retry
-    const setCookies = response.headers['set-cookie'];
-    const cookieStr = setCookies ? extractCookies(setCookies) : null;
-
-    const $ = cheerio.load(html);
-
-    // 从页面中提取笔记标题
-    const title = $('title').text().replace(' - 小红书', '') || $('meta[property="og:title"]').attr('content') || '';
-
-    // 尝试提取 JSON-LD 数据
-    let noteData = null;
-    $('script[type="application/ld+json"]').each((i, el) => {
-      try {
-        const data = JSON.parse($(el).html());
-        if (data && data.description) {
-          noteData = data;
-        }
-      } catch (e) { /* ignore */ }
-    });
-
-    // 从页面中提取图片列表（清洗缩略图后缀，取原图）
-    const images = [];
-    $('img').each((i, el) => {
-      const src = $(el).attr('src') || $(el).attr('data-src') || '';
-      if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
-        const clean = toPublicImageUrl(cleanImageUrl(src));
-        if (clean) images.push(clean);
-      }
-    });
-
-    // 从 meta 标签提取信息
-    const description = $('meta[name="description"]').attr('content') || '';
-    const ogImage = $('meta[property="og:image"]').attr('content') || '';
-    const ogVideo = $('meta[property="og:video"]').attr('content') || '';
-    const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
-
-    // 从页面中提取 window.__INITIAL_STATE__ 数据
-    // 注意：不能用正则 `{[\s\S]*?};` 匹配 —— SSR JSON 内嵌字符串（如 launchAppConfig）会截断
-    // 用括号配平 + 字符串状态跟踪，并清洗 SSR 内嵌的 undefined
-    let initialState = null;
-    $('script').each((i, el) => {
-      const text = $(el).html() || '';
-      const marker = 'window.__INITIAL_STATE__=';
-      const markerIdx = text.indexOf(marker);
-      if (markerIdx < 0) return;
-      try {
-        const seg = text.slice(markerIdx + marker.length);
-        let depth = 0, end = -1, inStr = false, esc = false;
-        for (let j = 0; j < seg.length; j++) {
-          const c = seg[j];
-          if (inStr) {
-            if (esc) esc = false;
-            else if (c === '\\') esc = true;
-            else if (c === '"') inStr = false;
-            continue;
-          }
-          if (c === '"') { inStr = true; continue; }
-          if (c === '{') depth++;
-          else if (c === '}') { depth--; if (depth === 0) { end = j; break; } }
-        }
-        if (end > 0) {
-          const json = seg.slice(0, end + 1)
-            .replace(/:\s*undefined\b/g, ':null')
-            .replace(/,\s*undefined\b/g, ',null');
-          initialState = JSON.parse(json);
-        }
-      } catch (e) { /* ignore */ }
-    });
-
-    // 尝试从 initialState 中提取视频/图片信息
-    // 视频地址优先取 stream 中的无水印档（H.265 309），
-    // 页面 og:video 多为带水印的 H.264 档，仅作 stream 缺失时的兜底
-    let videoUrl = '';
-    let noteTitle = '';
-    let authorName = '';
-    let coverFromState = '';
-    // SSR 图片列表（原图直链）—— 优先于页面 <img> 扫描
-    let stateImages = [];
-    if (initialState) {
-      // 遍历查找笔记对象（视频笔记取 video.stream，图片笔记取 imageList）
-      try {
-        const note = findNoteInState(initialState);
-        if (note) {
-          noteTitle = note.title || note.desc || '';
-          authorName = note.user && note.user.nickName ? note.user.nickName : '';
-          if (note.cover && note.cover.fileId) {
-            coverFromState = toPublicImageUrl(cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`));
-          }
-          // 视频笔记：从 stream 提取无水印源（309 档优先）
-          if (note.video && note.video.media && note.video.media.stream) {
-            videoUrl = extractVideoUrl(note.video.media.stream);
-          }
-          // 图片笔记：从 imageList 提取原图直链
-          // 小红书 2024+ 结构: note.imageList[] → { urlDefault | infoList[].image.url }
-          if (Array.isArray(note.imageList)) {
-            for (const img of note.imageList) {
-              if (!img) continue;
-              // 提取最高清版本并清洗缩略图后缀（取原图分辨率）
-              const rawUrl = extractBestImageUrl(img);
-              const imgUrl = toPublicImageUrl(cleanImageUrl(rawUrl));
-              if (imgUrl) {
-                stateImages.push(imgUrl);
-              }
-            }
-          }
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    // stream 提取失败时兜底用 og:video（带水印档，别无选择时才用）
-    if (!videoUrl) {
-      videoUrl = ogVideo || ogVideoUrl;
-    }
-
-    // 微信要求 https，xhscdn 直链为 http，统一转 https
-    if (videoUrl && videoUrl.startsWith('http://')) {
-      videoUrl = videoUrl.replace(/^http:\/\//, 'https://');
-    }
-
-    // 如果 __INITIAL_STATE__ 提取到但无视频/图片，可能是 SSR 数据不完整
-    // 尝试使用 Cookie 重新请求（若有新 Cookie）
-    if (!initialState && !ogImage && !images.length && !videoUrl && cookieStr) {
-      return await retryWithCookie(url, cookieStr);
-    }
-
-    // 判断类型
-    const isVideo = !!videoUrl;
-
-    if (isVideo) {
-      return {
-        success: true,
-        platform: 'xiaohongshu',
-        data: {
-          title: noteTitle || title || description || '',
-          coverUrl: toPublicImageUrl(ogImage) || coverFromState || (images.length > 0 ? images[0] : ''),
-          videoUrl: videoUrl,
-          noteId: extractNoteId(url),
-          source: 'xiaohongshu',
-          type: 'video',
-          description: description,
-          author: authorName ? { name: authorName } : undefined,
-        },
-      };
-    }
-
-    // 图片笔记
-    // 合并 SSR 原图列表 + 页面扫描图（去重），SSR 原图优先
-    const allImages = [];
-    const seenImg = new Set();
-    for (const u of [...stateImages, ...images]) {
-      if (u && !seenImg.has(u)) {
-        seenImg.add(u);
-        allImages.push(u);
-      }
-    }
-    const finalImages = allImages.length > 0 ? allImages : (ogImage ? [toPublicImageUrl(cleanImageUrl(ogImage))] : []);
-
-    return {
-      success: true,
-      platform: 'xiaohongshu',
-      data: {
-        title: title || noteTitle || description || '',
-        coverUrl: ogImage || coverFromState || (finalImages.length > 0 ? finalImages[0] : ''),
-        images: finalImages,
-        noteId: extractNoteId(url),
-        source: 'xiaohongshu',
-        type: 'image',
-        description: description,
-        text: $('meta[property="og:description"]').attr('content') || '',
-      },
-    };
-  } catch (err) {
-    console.error('[小红书] 解析失败:', err.message);
+  const { html, cookieStr } = await fetchNoteHtml(url);
+  if (!html) {
     return {
       success: false,
       platform: 'xiaohongshu',
-      error: '小红书解析暂时不可用，请稍后重试',
+      error: '小红书页面获取失败，请稍后重试',
     };
   }
+  return await parseNoteHtml(html, url, cookieStr);
 }
 
 /**
@@ -564,93 +693,6 @@ function extractCookies(setCookieHeaders) {
     .map(c => c.split(';')[0]) // 取每个 cookie 的 name=value 部分
     .filter(c => c.includes('='))
     .join('; ');
-}
-
-/**
- * 携带 Cookie 重新请求小红书页面
- * 某些情况下首次请求获得的 Cookie 可解锁后续请求
- */
-async function retryWithCookie(url, cookieStr) {
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Referer': 'https://www.xiaohongshu.com/',
-        'Cookie': cookieStr,
-      },
-      timeout: 15000,
-    });
-
-    const html = response.data;
-
-    // 再次检测反爬
-    const rateLimitCheck = detectRateLimit(html, response.status);
-    if (rateLimitCheck) {
-      return {
-        success: false,
-        platform: 'xiaohongshu',
-        error: rateLimitCheck,
-      };
-    }
-
-    const $ = cheerio.load(html);
-
-    // 尝试提取
-    const title = $('title').text().replace(' - 小红书', '') || $('meta[property="og:title"]').attr('content') || '';
-    const description = $('meta[name="description"]').attr('content') || '';
-    const ogImage = $('meta[property="og:image"]').attr('content') || '';
-    const ogVideo = $('meta[property="og:video"]').attr('content') || '';
-    const ogVideoUrl = $('meta[property="og:video:url"]').attr('content') || '';
-
-    const images = [];
-    $('img').each((i, el) => {
-      const src = $(el).attr('src') || $(el).attr('data-src') || '';
-      if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
-        images.push(toPublicImageUrl(cleanImageUrl(src)));
-      }
-    });
-
-    const videoUrl = ogVideo || ogVideoUrl;
-
-    if (videoUrl) {
-      return {
-        success: true,
-        platform: 'xiaohongshu',
-        data: {
-          title: title || description || '',
-          coverUrl: toPublicImageUrl(ogImage) || (images.length > 0 ? images[0] : ''),
-          videoUrl: videoUrl,
-          noteId: extractNoteId(url),
-          source: 'xiaohongshu',
-          type: 'video',
-          description: description,
-        },
-      };
-    }
-
-    if (images.length > 0) {
-      return {
-        success: true,
-        platform: 'xiaohongshu',
-        data: {
-          title: title || description || '',
-          coverUrl: toPublicImageUrl(ogImage) || images[0],
-          images: images,
-          noteId: extractNoteId(url),
-          source: 'xiaohongshu',
-          type: 'image',
-          description: description,
-          text: $('meta[property="og:description"]').attr('content') || '',
-        },
-      };
-    }
-
-    return { success: false };
-  } catch {
-    return { success: false };
-  }
 }
 
 module.exports = { parse, sanitizeThirdPartyImages };
