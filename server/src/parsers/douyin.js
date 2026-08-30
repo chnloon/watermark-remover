@@ -108,7 +108,10 @@ function normalizeBrowserResult(browserResult, videoId) {
  *   3. lux Go CLI 解析（内置 X-Bogus 签名，慢速兜底）
  *   4. 第三方解析 API 降级
  */
-async function parse(shareUrl) {
+async function parse(shareUrl, options = {}) {
+  // 路由模式（备选解析方案）：auto / third-party-first / third-party-only / direct-only
+  const routeMode = (options && options.routeMode) || 'auto';
+
   // 收集各步骤失败原因，用于内部诊断
   const failReasons = [];
   const startTime = Date.now();
@@ -135,6 +138,55 @@ async function parse(shareUrl) {
     if (cached) {
       console.log(`[抖音] 缓存命中: ${cacheKey} (${Date.now() - startTime}ms)`);
       return cached;
+    }
+
+    // ---- 路由模式前置分流（备选解析方案） ----
+    // 第三方线路按模式单独处理，避免与直连并行时重复调用触发第三方限流
+    const thirdPartyConfig = require('../config').thirdPartyApi;
+    const thirdPartyReady = !!(thirdPartyConfig && thirdPartyConfig.type);
+
+    if (routeMode === 'third-party-only') {
+      // 仅第三方：直连链路故障时的快速止损，第三方结论即最终结论
+      if (!thirdPartyReady) {
+        return {
+          success: false,
+          platform: 'douyin',
+          error: '第三方解析线路未启用（服务器未配置 THIRD_PARTY_API_TYPE），请切换回自动模式',
+        };
+      }
+      try {
+        const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 30000, '第三方');
+        if (thirdPartyResult.success) {
+          cacheSet(cacheKey, thirdPartyResult);
+          console.log(`[抖音] 第三方线路解析成功 (${Date.now() - startTime}ms)`);
+          return thirdPartyResult;
+        }
+        return thirdPartyResult;
+      } catch (apiErr) {
+        console.error('[抖音] 第三方线路失败:', apiErr.message);
+        return {
+          success: false,
+          platform: 'douyin',
+          error: `第三方解析线路暂不可用: ${apiErr.message}`,
+        };
+      }
+    }
+
+    if (routeMode === 'third-party-first') {
+      // 第三方优先：先单独跑第三方（成功立即返回），失败再走直连竞速链（不含第三方）
+      if (thirdPartyReady) {
+        try {
+          const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 30000, '第三方优先');
+          if (thirdPartyResult.success) {
+            cacheSet(cacheKey, thirdPartyResult);
+            console.log(`[抖音] 第三方优先命中 (${Date.now() - startTime}ms)`);
+            return thirdPartyResult;
+          }
+          failReasons.push('第三方优先:' + (thirdPartyResult.error || '失败'));
+        } catch (apiErr) {
+          failReasons.push('第三方优先异常:' + apiErr.message);
+        }
+      }
     }
 
     // ---- 并行三路：API / 页面 SSR / 浏览器 ----
@@ -168,8 +220,8 @@ async function parse(shareUrl) {
       });
     }
     // 若配置了第三方 API（如 bugpk），并行发起——数据中心 IP 被抖音风控时的关键兜底
-    const thirdPartyConfig = require('../config').thirdPartyApi;
-    if (thirdPartyConfig && thirdPartyConfig.type) {
+    // 仅 auto 模式加入并行竞速（third-party-first/only 已在前置分支单独处理，避免重复调用撞限流）
+    if (routeMode === 'auto' && thirdPartyReady) {
       strategies.push({
         name: '第三方',
         run: () => parseViaThirdParty(targetUrl, 'douyin'),
@@ -244,6 +296,15 @@ async function parse(shareUrl) {
         success: false,
         platform: 'douyin',
         error: '该视频可能已失效或需要登录，请检查链接是否正确',
+      };
+    }
+
+    // direct-only：第三方线路已禁用，直连全失败即结束，不再降级
+    if (routeMode === 'direct-only') {
+      return {
+        success: false,
+        platform: 'douyin',
+        error: '抖音解析暂时不可用，请稍后重试',
       };
     }
 

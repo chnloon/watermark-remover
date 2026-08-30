@@ -24,3 +24,4 @@ preview-qr.png
 
 # 自动化测试截图
 tools/wechat-automation/*.png
+route-state.json

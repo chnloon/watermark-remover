@@ -18,12 +18,43 @@ const { parseViaLux } = require('../services/luxParser');
  * @param {string} shareUrl
  * @returns {Promise<object>}
  */
-async function parse(shareUrl) {
+async function parse(shareUrl, options = {}) {
+  // 路由模式（备选解析方案）：auto / third-party-first / third-party-only / direct-only
+  const routeMode = (options && options.routeMode) || 'auto';
+
   try {
     // 第一步：解析分享链接，获取视频ID
     const videoId = await resolveVideoId(shareUrl);
     // 注意: videoId 可能为 null（如未知 URL 格式），
     // 但仍可尝试 fetchViaPage 和 lux——不提前退出
+
+    // ---- 路由模式前置分流（备选解析方案） ----
+    if (routeMode === 'third-party-only') {
+      // 仅第三方：直连链路故障时的快速止损，第三方结论即最终结论
+      try {
+        const thirdPartyResult = await parseViaThirdParty(shareUrl, 'kuaishou');
+        if (thirdPartyResult.success) return thirdPartyResult;
+        return thirdPartyResult;
+      } catch (apiErr) {
+        console.error('[快手] 第三方线路失败:', apiErr.message);
+        return {
+          success: false,
+          platform: 'kuaishou',
+          error: '第三方解析线路暂不可用，请切换回自动模式',
+        };
+      }
+    }
+
+    if (routeMode === 'third-party-first') {
+      // 第三方优先：先走第三方，成功立即返回；失败回落直连链
+      try {
+        const thirdPartyResult = await parseViaThirdParty(shareUrl, 'kuaishou');
+        if (thirdPartyResult.success) return thirdPartyResult;
+        console.error('[快手] 第三方优先失败:', thirdPartyResult.error);
+      } catch (apiErr) {
+        console.error('[快手] 第三方优先失败:', apiErr.message);
+      }
+    }
 
     // 第二步：调用快手 API 获取视频信息（需要 videoId）
     if (videoId) {
@@ -40,20 +71,23 @@ async function parse(shareUrl) {
     if (luxResult.success) return luxResult;
     console.error('[快手] lux 解析失败:', luxResult.error);
 
-    // 第四步：直接解析失败，尝试第三方 API 降级
-    try {
-      const thirdPartyResult = await parseViaThirdParty(shareUrl, 'kuaishou');
-      if (thirdPartyResult.success) return thirdPartyResult;
-    } catch (apiErr) {
-      console.error('[快手] 第三方 API 也失败:', apiErr.message);
+    // 第四步：直接解析失败，尝试第三方 API 降级（仅 auto 模式；
+    // third-party-first/only 已在前置分支处理，direct-only 禁用第三方）
+    if (routeMode === 'auto') {
+      try {
+        const thirdPartyResult = await parseViaThirdParty(shareUrl, 'kuaishou');
+        if (thirdPartyResult.success) return thirdPartyResult;
+      } catch (apiErr) {
+        console.error('[快手] 第三方 API 也失败:', apiErr.message);
 
-      if (apiErr.message && apiErr.message.includes('未配置')) {
-        // 第三方 API 未配置，统一返回通用文案（不泄露内部错误）
-        return {
-          success: false,
-          platform: 'kuaishou',
-          error: '快手解析暂时不可用，请稍后重试',
-        };
+        if (apiErr.message && apiErr.message.includes('未配置')) {
+          // 第三方 API 未配置，统一返回通用文案（不泄露内部错误）
+          return {
+            success: false,
+            platform: 'kuaishou',
+            error: '快手解析暂时不可用，请稍后重试',
+          };
+        }
       }
     }
 

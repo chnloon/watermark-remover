@@ -2,15 +2,17 @@
  * 链接解析助手 - 小程序入口
  */
 
-// 后端服务地址
+// 后端服务地址（多域名容灾：按顺序尝试，网络层失败自动切换下一个）
 // 生产环境: 云川集官网域名（轻量服务器 Nginx 反向代理）
-// 真机调试需在小程序后台配置该域名为合法域名
-const API_BASE_URL = 'https://yc0717.cc/api';
+// 真机调试需在小程序后台把数组内所有域名都配为合法域名
+// 未来新增备用服务器/域名时往数组加一项即可，前端零改动生效
+const API_BASE_URLS = ['https://yc0717.cc/api'];
 
 App({
   // 全局数据
   globalData: {
-    apiBaseUrl: API_BASE_URL,
+    // 当前生效的服务地址（请求拿到 HTTP 响应后刷新；proxy/download 地址用它拼接）
+    apiBaseUrl: API_BASE_URLS[0],
     userToken: '',
     userOpenid: '',
     // 背景底色（2026-07-31 复刻 NEBULA 登录页）：
@@ -137,20 +139,31 @@ App({
   },
 
   /**
-   * 统一的网络请求封装
+   * 统一的网络请求封装（带域名级容灾）
+   * 网络层失败（域名不可达/DNS/超时/证书）自动尝试下一个备用域名；
+   * 一旦收到 HTTP 响应（无论业务成败）就固定当前域名不再换线——
+   * 服务器可达说明线路没问题，问题在业务本身。
    */
   request(url, method = 'GET', data = {}) {
+    const token = this.globalData.userToken;
+    return this.requestWithFailover(url, method, data, token, 0);
+  },
+
+  /**
+   * 容灾递归体：第 index 个域名发起请求
+   */
+  requestWithFailover(url, method, data, token, index) {
+    const base = API_BASE_URLS[index];
     return new Promise((resolve, reject) => {
       const header = {
         'Content-Type': 'application/json',
       };
       // 自动附加 Authorization header
-      const token = this.globalData.userToken;
       if (token) {
         header['Authorization'] = 'Bearer ' + token;
       }
       wx.request({
-        url: `${API_BASE_URL}${url}`,
+        url: `${base}${url}`,
         method,
         data,
         header,
@@ -158,6 +171,8 @@ App({
         // （服务器抓取第三方平台正常 3-8 秒，超时即给明确提示让用户重试）
         timeout: 15000,
         success: (res) => {
+          // 服务器可达 → 固定当前域名（业务失败也换线无意义）
+          this.globalData.apiBaseUrl = base;
           if (res.statusCode === 200) {
             resolve(res.data);
           } else if (res.statusCode === 401 && url !== '/auth/login') {
@@ -173,7 +188,15 @@ App({
         fail: (err) => {
           // 打印完整 errMsg，真机调试时方便定位（域名未配置/超时/证书等各不相同）
           console.error('[请求失败]', url, err.errMsg || err);
-          reject(new Error(`网络错误: ${err.errMsg}`));
+          if (index + 1 < API_BASE_URLS.length) {
+            // 网络层不可达 → 切换下一个备用域名重试
+            console.warn(`[容灾] 域名 ${base} 不可达，切换备用域名重试`);
+            this.requestWithFailover(url, method, data, token, index + 1)
+              .then(resolve)
+              .catch(reject);
+          } else {
+            reject(new Error(`网络错误: ${err.errMsg}`));
+          }
         },
       });
     });

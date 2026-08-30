@@ -417,7 +417,9 @@ async function streamMediaDownload(req, res, fileUrl, shareUrl, attempt) {
         const platform = detectPlatform(cleanUrl);
         const parser = parsers[platform];
         if (parser) {
-          const fresh = await parser.parse(cleanUrl);
+          // 与 /api/parse 保持同一路由模式，避免下载自愈走了不同的抓取线路
+          const routeMode = require('./services/routeState').getMode();
+          const fresh = await parser.parse(cleanUrl, { routeMode });
           if (fresh && fresh.success && fresh.data && fresh.data.videoUrl) {
             console.log(`[下载] 重新解析成功，使用新链接重试（第 ${attempt + 1} 次）`);
             return streamMediaDownload(req, res, fresh.data.videoUrl, shareUrl, attempt + 1);
