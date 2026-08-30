@@ -323,7 +323,9 @@ async function scrapeNoteContent(url) {
     });
 
     // 尝试从 initialState 中提取视频/图片信息
-    let videoUrl = ogVideo || ogVideoUrl;
+    // 视频地址优先取 stream 中的无水印档（H.265 309），
+    // 页面 og:video 多为带水印的 H.264 档，仅作 stream 缺失时的兜底
+    let videoUrl = '';
     let noteTitle = '';
     let authorName = '';
     let coverFromState = '';
@@ -339,8 +341,8 @@ async function scrapeNoteContent(url) {
           if (note.cover && note.cover.fileId) {
             coverFromState = toPublicImageUrl(cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`));
           }
-          // 视频笔记
-          if (!videoUrl && note.video && note.video.media && note.video.media.stream) {
+          // 视频笔记：从 stream 提取无水印源（309 档优先）
+          if (note.video && note.video.media && note.video.media.stream) {
             videoUrl = extractVideoUrl(note.video.media.stream);
           }
           // 图片笔记：从 imageList 提取原图直链
@@ -358,6 +360,11 @@ async function scrapeNoteContent(url) {
           }
         }
       } catch (e) { /* ignore */ }
+    }
+
+    // stream 提取失败时兜底用 og:video（带水印档，别无选择时才用）
+    if (!videoUrl) {
+      videoUrl = ogVideo || ogVideoUrl;
     }
 
     // 微信要求 https，xhscdn 直链为 http，统一转 https
