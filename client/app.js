@@ -169,6 +169,8 @@ App({
           }
         },
         fail: (err) => {
+          // 打印完整 errMsg，真机调试时方便定位（域名未配置/超时/证书等各不相同）
+          console.error('[请求失败]', url, err.errMsg || err);
           reject(new Error(`网络错误: ${err.errMsg}`));
         },
       });
