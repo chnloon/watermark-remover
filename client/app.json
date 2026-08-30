@@ -33,6 +33,7 @@
     }
   },
   "__usePrivacyCheck__": true,
+  "lazyCodeLoading": "requiredComponents",
   "useExtendedLib": {
     "weui": true
   },
