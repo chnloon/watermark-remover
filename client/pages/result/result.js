@@ -16,7 +16,7 @@ Page({
     videoStatus: '正在加载视频...',
     videoError: false,
     currentUrl: '',
-    // 底部输入框按钮文字：粘贴 | 解析中 | 清空（状态机见 onReparseBarBtn 注释）
+    // 底部输入框按钮文字：粘贴 | 解析中 | 清空 | 解析（状态机见 onReparseBarBtn 注释）
     reparseBtnText: '粘贴',
     autoFocus: false,
     hasVideoUrl: false,
@@ -221,8 +221,8 @@ Page({
 
   /**
    * 粘贴栏输入变化
-   * 按钮状态机：空→粘贴；空状态输入链接→自动解析（解析中）；
-   * 清空态手动修改→取消已解析标记回粘贴（不自动解析，点击按钮时再解析）
+   * 按钮状态机：空→粘贴；输入链接→自动解析（解析中）；
+   * 已解析内容被手动修改→"解析"（点击直接解析当前内容，不再自动解析）
    */
   _reparseDebounce: null,
 
@@ -235,30 +235,45 @@ Page({
     }
 
     const trimmed = val.trim();
-    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
-    const isModifyingParsed = this._reparsedUrl !== '';
 
-    if (isLink && !isModifyingParsed) {
-      // 空状态输入链接 → 自动解析，按钮立即变"解析中"
+    // 已解析内容被手动修改 → 取消"已解析"标记，按钮变"解析"，点击直接解析当前内容
+    if (this._reparsedUrl && trimmed !== this._reparsedUrl) {
+      this._reparsedUrl = '';
+      this.setData({ reparseBtnText: trimmed ? '解析' : '粘贴' });
+      return;
+    }
+
+    // 输入框清空 → 回"粘贴"（读剪贴板）
+    if (!trimmed) {
+      this._reparsedUrl = '';
+      this.setData({ reparseBtnText: '粘贴' });
+      return;
+    }
+
+    // 与已解析内容一致 → "清空"
+    if (trimmed === this._reparsedUrl) {
+      this.setData({ reparseBtnText: '清空' });
+      return;
+    }
+
+    // 新输入链接 → 自动解析，按钮立即变"解析中"
+    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
+    if (isLink) {
       this.setData({ reparseBtnText: '解析中' });
       this._reparseDebounce = setTimeout(() => {
         this.onReParse(trimmed);
       }, 600);
-    } else if (isModifyingParsed) {
-      // 已解析内容被手动修改 → 取消"已解析"标记，变回待解析的"粘贴"
-      this._reparsedUrl = '';
-      this.setData({ reparseBtnText: '粘贴' });
     } else {
-      this.setData({ reparseBtnText: '粘贴' });
+      this.setData({ reparseBtnText: '解析' });
     }
   },
 
   /**
-   * 底部按钮点击 — 三态状态机
+   * 底部按钮点击 — 四态状态机
    * 粘贴（空输入）→ 读剪贴板并解析
    * 解析中 → 忽略
    * 清空（输入===已解析链接）→ 清空输入框，按钮回"粘贴"
-   * 待解析内容（手动输入/修改，非空非已解析）→ 解析当前内容
+   * 解析（输入非空且非已解析内容，含手动修改后）→ 解析当前内容
    */
   onReparseBarBtn() {
     if (this.data.reparseBtnText === '解析中') return; // 解析中忽略重复点击
@@ -341,7 +356,7 @@ Page({
       .then((result) => {
         if (!result.success) {
           this._reparsedUrl = '';
-          this.setData({ reparseBtnText: '粘贴' });
+          this.setData({ reparseBtnText: '解析' });
           app.showToast(result.error || '解析失败');
           return;
         }
@@ -375,7 +390,7 @@ Page({
       })
       .catch((err) => {
         this._reparsedUrl = '';
-        this.setData({ reparseBtnText: '粘贴' });
+        this.setData({ reparseBtnText: '解析' });
         // 分类提示：超时 / 网络异常给可操作的文案，避免裸抛底层 errMsg
         const msg = (err && err.message) || '网络错误';
         if (msg.includes('timeout') || msg.includes('超时')) {

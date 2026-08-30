@@ -12,7 +12,7 @@ Page({
   data: {
     inputUrl: '',
     isLoading: false,
-    // 输入框右侧按钮文字：粘贴 | 解析中 | 清空（状态机见 onSearchBarBtnTap 注释）
+    // 输入框右侧按钮文字：粘贴 | 解析中 | 清空 | 解析（状态机见 onSearchBarBtnTap 注释）
     btnText: '粘贴',
     showSkeleton: false,
     autoFocus: false,
@@ -94,16 +94,19 @@ Page({
       });
       return;
     }
-    // 从解析页返回：解析成功的链接恢复"清空"态；其它情况恢复"粘贴"待解析
+    // 从解析页返回：解析成功的链接恢复"清空"态；内容被修改过 → "解析"（点击解析当前内容）；空 → "粘贴"
     const trimmed = (this.data.inputUrl || '').trim();
-    this.setData({
-      btnText: trimmed && trimmed === this._parsedUrl ? '清空' : '粘贴',
-    });
+    let btnText = '粘贴';
+    if (trimmed) {
+      btnText = trimmed === this._parsedUrl ? '清空' : '解析';
+    }
+    this.setData({ btnText });
   },
 
   /**
    * 输入变化 — 带节流自动解析
-   * 按钮状态机：空→粘贴；输入链接→自动解析（解析中）；清空态手动修改→取消已解析标记回粘贴
+   * 按钮状态机：空→粘贴；输入链接→自动解析（解析中）；已解析内容被手动修改→"解析"
+   * （点击直接解析当前内容，不再自动解析，避免和用户编辑打架）
    */
   _parseDebounceTimer: null,
 
@@ -122,30 +125,45 @@ Page({
     }
 
     const trimmed = val.trim();
-    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
-    const isModifyingParsed = this._parsedUrl !== '';
 
-    if (isLink && !isModifyingParsed) {
-      // 空状态输入链接 → 自动解析，按钮立即变"解析中"
+    // 已解析内容被手动修改 → 取消"已解析"标记，按钮变"解析"，点击直接解析当前内容
+    if (this._parsedUrl && trimmed !== this._parsedUrl) {
+      this._parsedUrl = '';
+      this.setData({ btnText: trimmed ? '解析' : '粘贴' });
+      return;
+    }
+
+    // 输入框清空 → 回"粘贴"（读剪贴板）
+    if (!trimmed) {
+      this._parsedUrl = '';
+      this.setData({ btnText: '粘贴' });
+      return;
+    }
+
+    // 与已解析内容一致 → "清空"
+    if (trimmed === this._parsedUrl) {
+      this.setData({ btnText: '清空' });
+      return;
+    }
+
+    // 新输入链接 → 自动解析，按钮立即变"解析中"
+    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
+    if (isLink) {
       this.setData({ btnText: '解析中' });
       this._parseDebounceTimer = setTimeout(() => {
         this.doParse(trimmed);
       }, 600);
-    } else if (isModifyingParsed) {
-      // 已解析内容被手动修改 → 取消"已解析"标记，变回待解析的"粘贴"（不自动解析）
-      this._parsedUrl = '';
-      this.setData({ btnText: '粘贴' });
     } else {
-      this.setData({ btnText: '粘贴' });
+      this.setData({ btnText: '解析' });
     }
   },
 
   /**
-   * 搜索栏按钮点击 — 三态状态机
+   * 搜索栏按钮点击 — 四态状态机
    * 粘贴（空输入）→ 读剪贴板并解析
    * 解析中 → 忽略
    * 清空（输入===已解析链接）→ 清空输入框，按钮回"粘贴"
-   * 待解析内容（手动输入/修改，非空非已解析）→ 解析当前内容
+   * 解析（输入非空且非已解析内容，含手动修改后）→ 解析当前内容
    */
   async onSearchBarBtnTap() {
     if (this.data.isLoading) return; // 解析中忽略重复点击
@@ -274,7 +292,7 @@ Page({
       if (seq !== this._parseSeq) return;
 
       if (!result.success) {
-        this.setData({ isLoading: false, btnText: '粘贴' });
+        this.setData({ isLoading: false, btnText: '解析' });
         // 短视频解析失败：平台风控限制（服务器无法访问该平台），给出明确提示
         if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
           this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', urlText);
@@ -294,7 +312,7 @@ Page({
       });
     } catch (err) {
       if (seq !== this._parseSeq) return;
-      this.setData({ isLoading: false, btnText: '粘贴' });
+      this.setData({ isLoading: false, btnText: '解析' });
       const msg = err.message || '网络错误';
 
       if (msg.includes('timeout') || msg.includes('超时')) {
