@@ -65,7 +65,6 @@
     <!-- 底部说明 -->
     <view class="footer fade-in-up--d3">
       <text class="footer__text">支持短视频 / 网页视频解析</text>
-      <text class="footer__hint">粘贴链接即可解析 · 仅限本人有权使用的内容</text>
       <text class="footer__link" bindtap="onOpenAgreement">《用户协议与隐私保护指引》</text>
     </view>
 
