@@ -290,7 +290,7 @@
   color: #b0b4c0;
 }
 
-/* 勾选标记（右上角圆形） */
+/* 勾选标记（右上角蓝点：未选为白底描边，选中变实心蓝） */
 .image-card__check {
   position: absolute;
   top: 14rpx;
@@ -300,22 +300,12 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   border: 2rpx solid rgba(22, 24, 31, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
 }
 
 .image-card__check--on {
   background: #2b6cff;
   border-color: #2b6cff;
-}
-
-.image-card__check-icon {
-  color: #ffffff;
-  font-size: 28rpx;
-  font-weight: 700;
-  line-height: 1;
 }
 
 /* 序号角标 */

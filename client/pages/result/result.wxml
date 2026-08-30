@@ -110,10 +110,8 @@
             <view wx:else class="image-card__img image-card__img--fallback">
               <text class="image-card__fallback-text">加载失败</text>
             </view>
-            <!-- 勾选标记（右上角圆形） -->
-            <view class="image-card__check {{selectedImages[index] ? 'image-card__check--on' : ''}}">
-              <text wx:if="{{selectedImages[index]}}" class="image-card__check-icon">✓</text>
-            </view>
+            <!-- 勾选标记（右上角蓝点，选中变实心蓝） -->
+            <view class="image-card__check {{selectedImages[index] ? 'image-card__check--on' : ''}}"></view>
             <!-- 序号 -->
             <text class="image-card__index">{{index + 1}}</text>
           </view>

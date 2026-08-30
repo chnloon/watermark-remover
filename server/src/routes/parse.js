@@ -80,7 +80,7 @@ router.post('/parse', async (req, res) => {
         const isLocalHost = /^(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(req.get('host') || '');
         const protocol = isLocalHost ? 'http' : 'https';
         const host = req.get('host');
-        const baseDownload = `${protocol}://${host}/api/download?url=`;
+        const baseImage = `${protocol}://${host}/proxy/image?url=`;
         const proxyVideoBase = `${protocol}://${host}/proxy/video?url=`;
 
         if (result.data.type === 'list' && Array.isArray(result.data.items)) {
@@ -98,8 +98,10 @@ router.post('/parse', async (req, res) => {
           }
 
           if (result.data.images && Array.isArray(result.data.images)) {
+            // 图片预览代理（/proxy/image）：专供小程序 image 组件渲染，
+            // 与保存相册用的 /api/download 分离，避免 attachment 头/多线程下载影响预览
             result.data.proxyImages = result.data.images.map((imgUrl) =>
-              `${baseDownload}${encodeURIComponent(imgUrl)}`
+              `${baseImage}${encodeURIComponent(imgUrl)}`
             );
           }
         }

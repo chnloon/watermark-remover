@@ -306,6 +306,125 @@ app.get('/proxy/video_low', mediaLimiter, requireValidToken, async (req, res) =>
   }
 });
 
+// ===== 图片预览代理 =====
+// 专供小程序 <image> 组件加载预览图。
+// 与 /api/download（保存相册用）的区别：
+// - 单连接流式反代，不用多线程分片，响应头不设 Content-Disposition: attachment
+// - xhscdn 原图直链（无 ! 后缀）需登录态，403/404 时自动回落缩略图后缀版本
+//   （小红书 web 未登录页即展示该档，预览清晰度足够，保存仍走原图）
+app.get('/proxy/image', mediaLimiter, requireValidToken, async (req, res) => {
+  const imgUrl = req.query.url;
+  if (!imgUrl) {
+    return res.status(400).json({ success: false, error: '缺少 url 参数' });
+  }
+
+  try {
+    const decodedUrl = decodeURIComponent(imgUrl);
+
+    // SSRF 防护：与媒体代理一致，拒绝内网/回环/链路本地地址（含 DNS 解析校验）
+    await assertSafeUrl(decodedUrl);
+
+    // 防盗链 Referer（与 /proxy/video 同一规则）
+    let referer = '';
+    try {
+      const host = new URL(decodedUrl).hostname;
+      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+        referer = 'https://www.douyin.com/';
+      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+        referer = 'https://www.kuaishou.com/';
+      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+        referer = 'https://www.xiaohongshu.com/';
+      }
+    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+
+    // xhscdn 原图直链匿名访问多被 403，拼上缩略图后缀（! 开头的 webp 档）重试
+    const buildFallbackUrl = (url) => {
+      try {
+        const u = new URL(url);
+        if (/xhscdn\.com/i.test(u.hostname) && !u.pathname.includes('!')) {
+          return `${u.origin}${u.pathname}!nd_dft_wlteh_webp_3${u.search}`;
+        }
+      } catch { /* 交由上层处理 */ }
+      return null;
+    };
+
+    const requestHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+    };
+    if (referer) {
+      requestHeaders['Referer'] = referer;
+    }
+
+    const fetchImage = (url) => axios({
+      method: 'GET',
+      url,
+      headers: requestHeaders,
+      responseType: 'stream',
+      timeout: 30000,
+      maxRedirects: 5,
+      lookup: safeLookup, // 连接时实时校验 DNS 结果，防 DNS rebinding
+      // 4xx 透传（403/404 走回落逻辑），5xx 抛错
+      validateStatus: (status) => status < 500,
+    });
+
+    let response = await fetchImage(decodedUrl);
+
+    // 原图直链被防盗链拒绝 → 回落缩略图档（仅 xhscdn 图床）
+    if ((response.status === 403 || response.status === 404) && !decodedUrl.includes('!')) {
+      const fallback = buildFallbackUrl(decodedUrl);
+      if (fallback) {
+        response.data.resume(); // 丢弃原响应体，释放连接
+        console.log('[图片代理] 原图直链被拒，回落缩略图档');
+        response = await fetchImage(fallback);
+      }
+    }
+
+    // 拒绝把 HTML 页面当图片回传（防止通过代理读取内网/第三方页面）
+    const contentType = (response.headers['content-type'] || '').toLowerCase();
+    if (contentType.startsWith('text/html') || (contentType && !contentType.startsWith('image/'))) {
+      response.data.resume();
+      return res.status(502).json({ success: false, error: '目标资源类型不受支持' });
+    }
+
+    // 转发图片相关响应头（不设 Content-Disposition，image 组件直接渲染）
+    const forwardHeaders = [
+      'content-type',
+      'content-length',
+      'cache-control',
+      'expires',
+      'last-modified',
+      'etag',
+    ];
+
+    for (const header of forwardHeaders) {
+      const value = response.headers[header];
+      if (value !== undefined) {
+        res.setHeader(
+          header.replace(/\b\w/g, (c) => c.toUpperCase()),
+          value
+        );
+      }
+    }
+
+    res.status(response.status);
+
+    response.data.on('error', (streamErr) => {
+      console.error('[图片代理] 流错误:', streamErr.message);
+      if (!res.headersSent) {
+        res.status(502).json({ success: false, error: '图片流错误' });
+      }
+    });
+
+    response.data.pipe(res);
+  } catch (err) {
+    // 脱敏：SSRF 拦截(400)与内部错误(502)统一为通用文案，不泄露内部信息
+    const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
+    console.error('[图片代理] 获取失败:', err.message);
+    res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '图片获取失败，请重新解析后重试' });
+  }
+});
+
 // ===== 文件下载（专供小程序保存到相册） =====
 // wx.downloadFile + wx.saveVideoToPhotosAlbum / wx.saveImageToPhotosAlbum
 // 通过后端中转：补 Referer/UA 请求头，避免平台防盗链拦截
