@@ -320,6 +320,18 @@ Page({
    */
   onVideoError(e) {
     console.error('视频播放失败:', e.detail);
+    // 流畅（转码）流失败时自动回落到高清原画，避免一直停在错误状态
+    // （服务器未装 ffmpeg 或转码出错时，转码流会返回 502）
+    if (this.data.videoQuality === 'low' && this.data.lowVideoUrl) {
+      this.setData({
+        videoQuality: 'hd',
+        videoStartTime: this._lastPlayTime || 0,
+        videoStatus: '流畅模式暂不可用，已切换高清',
+        videoError: false,
+      });
+      app.showToast('已自动切换为高清模式');
+      return;
+    }
     const resultData = this.data.resultData;
     if (resultData && resultData.data) {
       const proxyUrl = resultData.data.proxyVideoUrl;
