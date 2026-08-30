@@ -139,17 +139,23 @@ app.get('/proxy/video', mediaLimiter, requireValidToken, async (req, res) => {
 
     // 按视频 CDN 域名动态选择 Referer：
     // 抖音系 CDN 需要抖音 Referer 防盗链；xhscdn（小红书）对抖音 Referer 直接 403
+    // 通用网页视频由 /api/parse 携带页面站域 Referer 参数（refQuery）显式传入，优先于平台默认
     let referer = '';
-    try {
-      const host = new URL(decodedUrl).hostname;
-      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
-        referer = 'https://www.douyin.com/';
-      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
-        referer = 'https://www.kuaishou.com/';
-      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
-        referer = 'https://www.xiaohongshu.com/';
-      }
-    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    const refParam = req.query.referer;
+    if (typeof refParam === 'string' && refParam && refParam.length < 500) {
+      referer = refParam;
+    } else {
+      try {
+        const host = new URL(decodedUrl).hostname;
+        if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+          referer = 'https://www.douyin.com/';
+        } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+          referer = 'https://www.kuaishou.com/';
+        } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+          referer = 'https://www.xiaohongshu.com/';
+        }
+      } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    }
 
     // 构造请求头 - 透传客户端的 Range 头用于分片请求
     const requestHeaders = {
@@ -245,18 +251,23 @@ app.get('/proxy/video_low', mediaLimiter, requireValidToken, async (req, res) =>
     // SSRF 防护：与 /proxy/video 一致，拒绝内网/回环/链路本地地址
     await assertSafeUrl(decodedUrl);
 
-    // 防盗链 Referer（与 /proxy/video 同一规则）
+    // 防盗链 Referer（与 /proxy/video 同一规则：显式参数优先，否则按平台域名默认）
     let referer = '';
-    try {
-      const host = new URL(decodedUrl).hostname;
-      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
-        referer = 'https://www.douyin.com/';
-      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
-        referer = 'https://www.kuaishou.com/';
-      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
-        referer = 'https://www.xiaohongshu.com/';
-      }
-    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    const refParam = req.query.referer;
+    if (typeof refParam === 'string' && refParam && refParam.length < 500) {
+      referer = refParam;
+    } else {
+      try {
+        const host = new URL(decodedUrl).hostname;
+        if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+          referer = 'https://www.douyin.com/';
+        } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+          referer = 'https://www.kuaishou.com/';
+        } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+          referer = 'https://www.xiaohongshu.com/';
+        }
+      } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    }
 
     const userAgent = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36';
     const headerStr = `User-Agent: ${userAgent}\r\n${referer ? `Referer: ${referer}\r\n` : ''}`;
@@ -324,18 +335,23 @@ app.get('/proxy/image', mediaLimiter, requireValidToken, async (req, res) => {
     // SSRF 防护：与媒体代理一致，拒绝内网/回环/链路本地地址（含 DNS 解析校验）
     await assertSafeUrl(decodedUrl);
 
-    // 防盗链 Referer（与 /proxy/video 同一规则）
+    // 防盗链 Referer（与 /proxy/video 同一规则：显式参数优先，否则按平台域名默认）
     let referer = '';
-    try {
-      const host = new URL(decodedUrl).hostname;
-      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
-        referer = 'https://www.douyin.com/';
-      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
-        referer = 'https://www.kuaishou.com/';
-      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
-        referer = 'https://www.xiaohongshu.com/';
-      }
-    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    const refParam = req.query.referer;
+    if (typeof refParam === 'string' && refParam && refParam.length < 500) {
+      referer = refParam;
+    } else {
+      try {
+        const host = new URL(decodedUrl).hostname;
+        if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+          referer = 'https://www.douyin.com/';
+        } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+          referer = 'https://www.kuaishou.com/';
+        } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+          referer = 'https://www.xiaohongshu.com/';
+        }
+      } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+    }
 
     // xhscdn 原图直链匿名访问多被 403，拼上缩略图后缀（! 开头的 webp 档）重试
     const buildFallbackUrl = (url) => {

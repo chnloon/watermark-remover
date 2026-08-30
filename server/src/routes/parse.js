@@ -82,26 +82,36 @@ router.post('/parse', async (req, res) => {
         const host = req.get('host');
         const baseImage = `${protocol}://${host}/proxy/image?url=`;
         const proxyVideoBase = `${protocol}://${host}/proxy/video?url=`;
+        const videoLowBase = `${protocol}://${host}/proxy/video_low?url=`;
+
+        // 网页视频（generic）反代时携带页面站域 Referer 对抗防盗链；
+        // M3U8 流改走 ffmpeg 转码（/proxy/video_low）：HLS 分片相对路径由 ffmpeg
+        // 在服务端解析，纯反代会把分片路径错误拼到代理地址上导致 404
+        const pageRef = result.data.pageUrl || '';
+        const refQuery = pageRef ? `&referer=${encodeURIComponent(pageRef)}` : '';
+        const isM3u8Link = (u) => /\.m3u8([?#]|$)/i.test(u || '');
 
         if (result.data.type === 'list' && Array.isArray(result.data.items)) {
           // 列表类型：为每个 item 注入代理 URL
           result.data.items = result.data.items.map((item) => {
             if (item.url) {
-              item.proxyUrl = `${proxyVideoBase}${encodeURIComponent(item.url)}`;
+              const base = isM3u8Link(item.url) ? videoLowBase : proxyVideoBase;
+              item.proxyUrl = `${base}${encodeURIComponent(item.url)}${refQuery}`;
             }
             return item;
           });
         } else {
           // 单视频
           if (result.data.videoUrl) {
-            result.data.proxyVideoUrl = `${proxyVideoBase}${encodeURIComponent(result.data.videoUrl)}`;
+            const base = isM3u8Link(result.data.videoUrl) ? videoLowBase : proxyVideoBase;
+            result.data.proxyVideoUrl = `${base}${encodeURIComponent(result.data.videoUrl)}${refQuery}`;
           }
 
           if (result.data.images && Array.isArray(result.data.images)) {
             // 图片预览代理（/proxy/image）：专供小程序 image 组件渲染，
             // 与保存相册用的 /api/download 分离，避免 attachment 头/多线程下载影响预览
             result.data.proxyImages = result.data.images.map((imgUrl) =>
-              `${baseImage}${encodeURIComponent(imgUrl)}`
+              `${baseImage}${encodeURIComponent(imgUrl)}${refQuery}`
             );
           }
         }
