@@ -121,6 +121,7 @@ Page({
    * 搜索栏按钮点击 — 从剪贴板粘贴 / 解析当前输入
    */
   async onSearchBarBtnTap() {
+    if (this.data.isLoading) return; // 解析中忽略重复点击
     if (this.data.inputUrl) {
       this.doParse(this.data.inputUrl.trim());
     } else {
@@ -188,6 +189,7 @@ Page({
    * 键盘搜索键触发
    */
   onParseFromButton() {
+    if (this.data.isLoading) return; // 解析中忽略重复触发
     const url = this.data.inputUrl.trim();
     if (url) {
       this.doParse(url);
@@ -213,49 +215,65 @@ Page({
 
   /**
    * 核心解析逻辑
+   * 防"植物人"三件套：
+   * 1. 解析中页面有明确的状态条反馈（wxml 里 isLoading 驱动）
+   * 2. 请求 15s 超时兜底（app.js request 封装），超时立即弹窗可重试
+   * 3. 请求序号只认最后一次：解析中又粘贴/输入新链接时，旧请求返回直接丢弃，
+   *    不会用旧结果覆盖新链接，也不会出现两个请求并发互相打架
    */
+  _parseSeq: 0,
+
   async doParse(url) {
+    const urlText = (url || '').trim();
+    if (!urlText) return;
+
+    const seq = ++this._parseSeq;
     this.setData({ isLoading: true });
 
     try {
       // 抖音短链统一交给后端解码：
       // - 前端 wx.request 请求 v.douyin.com 在真机被微信拦截（非合法域名）
       // - 后端无域名限制，可直接解码短链（302→完整链接）再解析
-      const result = await app.request('/parse', 'POST', { url });
+      const result = await app.request('/parse', 'POST', { url: urlText });
+
+      // 期间用户又发起了新解析 → 本次结果过期，直接丢弃（按钮状态交给最新那次管）
+      if (seq !== this._parseSeq) return;
 
       if (!result.success) {
         this.setData({ isLoading: false });
         // 短视频解析失败：平台风控限制（服务器无法访问该平台），给出明确提示
         if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
-          this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', url);
+          this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', urlText);
         } else {
-          this.showError(result.error || '解析失败，请检查链接是否有效', url);
+          this.showError(result.error || '解析失败，请检查链接是否有效', urlText);
         }
         return;
       }
 
       // 解析成功 — 存储并跳转
       app.globalData.lastParseResult = result;
-      app.globalData.lastInputUrl = url;
+      app.globalData.lastInputUrl = urlText;
       wx.navigateTo({
         url: '/pages/result/result',
       });
     } catch (err) {
+      if (seq !== this._parseSeq) return;
       this.setData({ isLoading: false });
       const msg = err.message || '网络错误';
 
       if (msg.includes('timeout') || msg.includes('超时')) {
-        this.showError('请求超时，请检查网络后重试', url);
+        this.showError('解析超时（服务器响应慢），请稍后重试', urlText);
       } else if (msg.includes('网络')) {
         // 真机最常见的根因：后台未配置服务器域名（request/downloadFile），
         // 微信拦截后 errMsg 为 "url not in domain list"
         const hint = msg.includes('domain') ? '（未配置合法域名，请在小程序后台添加 https://yc0717.cc）' : '';
-        this.showError('网络连接异常，请检查网络设置' + hint, url);
+        this.showError('网络连接异常，请检查网络设置' + hint, urlText);
       } else {
-        this.showError(msg + '，请稍后重试', url);
+        this.showError(msg + '，请稍后重试', urlText);
       }
     } finally {
-      this.setData({ isLoading: false });
+      // 只复位"最新一次"解析的加载态，防止被丢弃的旧请求把状态搞乱
+      if (seq === this._parseSeq) this.setData({ isLoading: false });
     }
   },
 

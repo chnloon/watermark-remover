@@ -154,7 +154,9 @@ App({
         method,
         data,
         header,
-        timeout: 30000,
+        // 15s 超时兜底：解析最长等待不超过 15 秒，避免"粘贴后静默卡死"
+        // （服务器抓取第三方平台正常 3-8 秒，超时即给明确提示让用户重试）
+        timeout: 15000,
         success: (res) => {
           if (res.statusCode === 200) {
             resolve(res.data);

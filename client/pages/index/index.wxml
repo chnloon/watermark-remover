@@ -57,6 +57,12 @@
           <text wx:else>解析中</text>
         </button>
       </view>
+
+      <!-- 解析状态条：自动解析时给明确的进行中反馈，不让用户对着"解析中"按钮干等 -->
+      <view wx:if="{{isLoading}}" class="parse-status fade-in-up">
+        <view class="parse-status__dot"></view>
+        <text class="parse-status__text">正在解析链接，请稍候…</text>
+      </view>
     </view>
 
     <!-- 弹性撑开 -->

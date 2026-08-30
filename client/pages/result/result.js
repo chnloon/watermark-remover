@@ -171,6 +171,8 @@ Page({
 
   /**
    * 重新解析（输入框确认 或 粘贴后自动）
+   * 防"植物人"：解析期间忽略重复触发（连点不并发）；15s 超时由 app.request 兜底，
+   * 失败分类提示并立即恢复可操作状态
    */
   onReParse() {
     const url = this.data.currentUrl.trim();
@@ -178,6 +180,8 @@ Page({
       app.showToast('请先粘贴链接');
       return;
     }
+    if (this._reparsing) return; // 正在解析中，忽略重复触发
+    this._reparsing = true;
 
     app.showToast('正在解析...', 'loading');
 
@@ -213,7 +217,18 @@ Page({
       })
       .catch((err) => {
         wx.hideToast();
-        app.showToast(err.message || '网络错误');
+        // 分类提示：超时 / 网络异常给可操作的文案，避免裸抛底层 errMsg
+        const msg = (err && err.message) || '网络错误';
+        if (msg.includes('timeout') || msg.includes('超时')) {
+          app.showToast('解析超时，请稍后重试');
+        } else if (msg.includes('网络')) {
+          app.showToast('网络连接异常，请检查网络设置');
+        } else {
+          app.showToast(msg);
+        }
+      })
+      .then(() => {
+        this._reparsing = false;
       });
   },
 
