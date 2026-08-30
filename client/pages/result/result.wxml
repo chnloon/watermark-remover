@@ -36,20 +36,41 @@
       <view class="media-card__video-wrap">
         <video
           wx:if="{{hasVideoUrl}}"
+          id="previewVideo"
           class="media-card__video"
-          src="{{resultData.data.proxyVideoUrl || resultData.data.videoUrl}}"
+          src="{{videoQuality === 'low' && lowVideoUrl ? lowVideoUrl : (resultData.data.proxyVideoUrl || resultData.data.videoUrl)}}"
           controls
           autoplay="{{false}}"
           object-fit="contain"
           background="#e9ebf1"
           poster="{{resultData.data.videoCover || resultData.data.coverUrl || ''}}"
+          initial-time="{{videoStartTime}}"
           bindready="onVideoReady"
           binderror="onVideoError"
+          bindtimeupdate="onVideoTimeUpdate"
         />
         <!-- 无视频地址兜底：浅色占位，避免空 src 黑底 -->
         <view wx:else class="media-card__video-placeholder">
           <text class="video-status">视频地址缺失，请重新解析</text>
         </view>
+      </view>
+
+      <!-- 清晰度切换：高清原画 / 流畅(480p转码) -->
+      <view wx:if="{{hasVideoUrl}}" class="quality-bar">
+        <text class="quality-bar__title">清晰度</text>
+        <view class="quality-bar__seg">
+          <text
+            class="quality-bar__opt {{videoQuality === 'hd' ? 'quality-bar__opt--on' : ''}}"
+            data-q="hd"
+            bindtap="onQualityChange"
+          >高清</text>
+          <text
+            class="quality-bar__opt {{videoQuality === 'low' ? 'quality-bar__opt--on' : ''}}"
+            data-q="low"
+            bindtap="onQualityChange"
+          >流畅</text>
+        </view>
+        <text class="quality-bar__hint">{{videoQuality === 'low' ? '低画质 · 播放更流畅' : '原画 · 清晰度最高'}}</text>
       </view>
 
       <!-- 错误状态 + 重试 -->
@@ -229,6 +250,7 @@
           maxlength="-1"
           confirm-type="search"
           bindconfirm="onReParse"
+          focus="{{autoFocus}}"
         />
         <button class="reparse-bar__btn {{currentUrl ? 'reparse-bar__btn--clear' : ''}}" bindtap="onReparseBarBtn">{{currentUrl ? '清空' : '粘贴'}}</button>
       </view>

@@ -17,6 +17,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { spawn } = require('child_process');
 const rateLimit = require('express-rate-limit');
 const parseRoute = require('./routes/parse');
 const authRoute = require('./routes/auth');
@@ -224,6 +225,84 @@ app.get('/proxy/video', mediaLimiter, requireValidToken, async (req, res) => {
     const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
     console.error('[代理] 视频获取失败:', err.message);
     res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '视频获取失败，请重新解析后重试' });
+  }
+});
+
+// ===== 低清晰度转码代理 =====
+// 原视频多为 1080p 高码率，服务器带宽有限导致播放卡顿。
+// 用 ffmpeg 实时转成 480p / 800kbps 低码率流，供客户端"流畅模式"播放。
+// 依赖服务器安装 ffmpeg：sudo apt-get update && sudo apt-get install -y ffmpeg
+
+app.get('/proxy/video_low', mediaLimiter, requireValidToken, async (req, res) => {
+  const videoUrl = req.query.url;
+  if (!videoUrl) {
+    return res.status(400).json({ success: false, error: '缺少 url 参数' });
+  }
+
+  try {
+    const decodedUrl = decodeURIComponent(videoUrl);
+
+    // SSRF 防护：与 /proxy/video 一致，拒绝内网/回环/链路本地地址
+    await assertSafeUrl(decodedUrl);
+
+    // 防盗链 Referer（与 /proxy/video 同一规则）
+    let referer = '';
+    try {
+      const host = new URL(decodedUrl).hostname;
+      if (/douyin\.com|iesdouyin\.com|douyinvod\.com|zjcdn\.com/i.test(host)) {
+        referer = 'https://www.douyin.com/';
+      } else if (/kuaishou\.com|gifshow\.com|yximgs\.com/i.test(host)) {
+        referer = 'https://www.kuaishou.com/';
+      } else if (/xiaohongshu\.com|xhscdn\.com/i.test(host)) {
+        referer = 'https://www.xiaohongshu.com/';
+      }
+    } catch { /* 非法 URL 交由 assertSafeUrl 处理 */ }
+
+    const userAgent = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36';
+    const headerStr = `User-Agent: ${userAgent}\r\n${referer ? `Referer: ${referer}\r\n` : ''}`;
+
+    // ffmpeg 直拉源 URL（内部自行处理 mp4 moov seek / Range），
+    // 实时转码后输出流式 mp4（frag_keyframe 支持边下边播）
+    const ff = spawn('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error',
+      '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
+      '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '2',
+      '-headers', headerStr,
+      '-i', decodedUrl,
+      '-vf', 'scale=-2:480',
+      '-c:v', 'libx264', '-preset', 'veryfast',
+      '-b:v', '800k', '-maxrate', '1000k', '-bufsize', '2000k',
+      '-c:a', 'aac', '-b:a', '96k', '-ar', '44100',
+      '-movflags', 'frag_keyframe+empty_moov',
+      '-f', 'mp4',
+      'pipe:1',
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    // 转码流直接回传（不设 Content-Length，播放器按网络流处理）
+    res.setHeader('Content-Type', 'video/mp4');
+    res.status(200);
+
+    ff.stdout.pipe(res);
+
+    ff.stderr.on('data', (chunk) => {
+      console.error('[转码]', chunk.toString().trim());
+    });
+
+    ff.on('error', (err) => {
+      console.error('[转码] ffmpeg 启动失败:', err.message);
+      if (!res.headersSent) {
+        res.status(502).json({ success: false, error: '视频转码失败' });
+      }
+    });
+
+    // 客户端断开（关页/切源）立即终止转码，释放 CPU
+    res.on('close', () => {
+      ff.kill('SIGKILL');
+    });
+  } catch (err) {
+    const status = err && err.code === 'UNSAFE_URL' ? 400 : 502;
+    console.error('[转码] 启动失败:', err.message);
+    res.status(status).json({ success: false, error: status === 400 ? '链接地址不可访问' : '视频转码失败，请重试' });
   }
 });
 

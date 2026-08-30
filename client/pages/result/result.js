@@ -16,7 +16,12 @@ Page({
     videoStatus: '正在加载视频...',
     videoError: false,
     currentUrl: '',
+    autoFocus: false,
     hasVideoUrl: false,
+    // 清晰度切换：'low' 流畅（默认，后端转码 480p，省流更顺）/ 'hd' 高清原画
+    videoQuality: 'low',
+    lowVideoUrl: '',
+    videoStartTime: 0,
     selectedImages: [],
     selectedCount: 0,
     allSelected: false,
@@ -42,6 +47,10 @@ Page({
       selectedCount: 0,
       allSelected: false,
       imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
+      // 清晰度状态：默认流畅（480p 转码，手机观感足够且省流），可一键切高清原画
+      videoQuality: 'low',
+      lowVideoUrl: this._buildLowVideoUrl(result),
+      videoStartTime: 0,
     });
 
     // 保存到历史记录
@@ -61,10 +70,22 @@ Page({
   },
 
   /**
+   * 生成"流畅模式"转码地址（后端 ffmpeg 实时转 480p 低码率）
+   */
+  _buildLowVideoUrl(result) {
+    const videoUrl = result && result.data && result.data.videoUrl;
+    if (!videoUrl) return '';
+    return app.globalData.apiBaseUrl.replace('/api', '') + '/proxy/video_low?url=' + encodeURIComponent(videoUrl);
+  },
+
+  /**
    * 预加载视频头
    */
   preloadVideo(result) {
     if (!result || !result.data || result.data.type !== 'video') return;
+    // 默认播放"流畅"转码流：转码是实时生成的，没有 CDN 预热概念，
+    // 预取只会白白多拉起一次 ffmpeg 转码进程，故直接跳过
+    if (this.data.lowVideoUrl) return;
     // 预取用原始 videoUrl（proxyVideoUrl 本身就是代理地址，再套一层会二次代理）
     const videoUrl = result.data.videoUrl;
     if (!videoUrl) return;
@@ -112,6 +133,17 @@ Page({
    */
   async onPasteUrl() {
     try {
+      // 主动请求隐私授权；失败不阻断——继续调 getClipboardData，
+      // 由它触发隐私弹窗（后台指引生效时），或自行失败再降级
+      if (wx.requirePrivacyAuthorize) {
+        try {
+          await new Promise((resolve, reject) => {
+            wx.requirePrivacyAuthorize({ success: resolve, fail: reject });
+          });
+        } catch (e) {
+          console.warn('[粘贴] requirePrivacyAuthorize 未通过，继续尝试读取剪贴板:', e);
+        }
+      }
       const res = await wx.getClipboardData({});
       if (res.data) {
         this.setData({ currentUrl: res.data }, () => {
@@ -121,7 +153,23 @@ Page({
         app.showToast('剪贴板为空');
       }
     } catch (err) {
-      app.showToast('读取剪贴板失败');
+      // 真机调试时可在 Console 查看具体 errMsg（如隐私未授权）
+      console.error('[粘贴] 读取剪贴板失败:', err);
+      const msg = (err && (err.errMsg || err.message)) || '';
+      let content = '请长按下方输入框，选择"粘贴"后点击解析。';
+      if (/privacy|auth/i.test(msg)) {
+        content = '未获得剪贴板授权：请确认小程序后台「用户隐私保护指引」已通过审核且声明了「剪贴板」，并在授权弹窗点击「同意并继续」。也可长按下方输入框手动粘贴。';
+      }
+      wx.showModal({
+        title: '无法读取剪贴板',
+        content,
+        showCancel: false,
+        confirmText: '好的',
+        success: () => {
+          // 聚焦输入框，方便用户直接长按粘贴
+          this.setData({ autoFocus: true });
+        },
+      });
     }
   },
 
@@ -159,6 +207,10 @@ Page({
           selectedCount: 0,
           allSelected: false,
           imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
+          // 重新解析后清晰度回到默认流畅，并重新生成流畅地址
+          videoQuality: 'low',
+          lowVideoUrl: this._buildLowVideoUrl(result),
+          videoStartTime: 0,
         });
 
         this.saveToHistory(result);
@@ -236,6 +288,31 @@ Page({
    */
   onVideoReady() {
     this.setData({ videoStatus: '', videoError: false });
+  },
+
+  /**
+   * 播放进度记录 — 切换清晰度时用于续播
+   */
+  onVideoTimeUpdate(e) {
+    this._lastPlayTime = e.detail.currentTime || 0;
+  },
+
+  /**
+   * 清晰度切换（高清原画 / 流畅转码）
+   * 切换后从当前播放位置续播，避免重新从头看
+   */
+  onQualityChange(e) {
+    const q = e.currentTarget.dataset.q;
+    if (q === this.data.videoQuality) return;
+
+    this.setData({
+      videoQuality: q,
+      // 记住当前播放位置，换源后通过 initial-time 续播
+      videoStartTime: this._lastPlayTime || 0,
+      videoStatus: q === 'low' ? '正在加载流畅画质...' : '正在加载高清画质...',
+      videoError: false,
+    });
+    app.showToast(q === 'low' ? '已切换为流畅模式' : '已切换为高清模式');
   },
 
   /**
@@ -394,39 +471,10 @@ Page({
   },
 
   /**
-   * 保存前版权确认（仅首次弹窗）
-   * 用户同意后写入 app.globalData.copyrightConfirmed，本次会话不再重复打扰
-   */
-  confirmCopyright() {
-    if (app.globalData.copyrightConfirmed) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      wx.showModal({
-        title: '版权提示',
-        content: '请确认您保存的内容为本人创作、已获授权或符合平台规则允许的公开内容，且仅用于个人学习、存档，不会用于商业盗录或二次分发。',
-        confirmText: '确认保存',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            app.globalData.copyrightConfirmed = true;
-            resolve(true);
-          } else {
-            resolve(false);
-          }
-        },
-        fail: () => resolve(false),
-      });
-    });
-  },
-
-  /**
    * 保存视频到相册
-   * 流程: 点击 → 版权确认（仅首次） → 主动索取相册权限 → 下载视频直链 → 存入相册
+   * 流程: 点击 → 主动索取相册权限 → 下载视频直链 → 存入相册
    */
   async onSaveVideo() {
-    // 保存前版权确认（仅首次弹窗，之后直接保存）
-    const consent = await this.confirmCopyright();
-    if (!consent) return;
-
     // 保存用原始 videoUrl（proxyVideoUrl 是给 video 组件播放的代理地址，
     // 再套 /api/download 会二次代理多一跳浪费流量）
     const videoUrl = this.data.resultData.data.videoUrl;
@@ -473,10 +521,6 @@ Page({
    * 保存列表中的单个视频到相册
    */
   async onSaveListItem(e) {
-    // 保存前版权确认（仅首次弹窗，之后直接保存）
-    const consent = await this.confirmCopyright();
-    if (!consent) return;
-
     const index = e.currentTarget.dataset.index;
     const items = this.data.resultData.data.items;
     if (!items || index < 0 || index >= items.length) {
@@ -531,10 +575,6 @@ Page({
    * 优先直连原始 URL（用户手机 IP 可信，图床不风控），失败再走代理兜底
    */
   async onSaveImages() {
-    // 保存前版权确认（仅首次弹窗，之后直接保存）
-    const consent = await this.confirmCopyright();
-    if (!consent) return;
-
     const images = this.data.resultData.data.images;
     const proxyImages = this.data.resultData.data.proxyImages;
     if (!images || images.length === 0) {
