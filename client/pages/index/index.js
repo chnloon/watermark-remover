@@ -12,6 +12,8 @@ Page({
   data: {
     inputUrl: '',
     isLoading: false,
+    // 输入框右侧按钮文字：粘贴 | 解析中 | 清空（状态机见 onSearchBarBtnTap 注释）
+    btnText: '粘贴',
     showSkeleton: false,
     autoFocus: false,
 
@@ -19,6 +21,9 @@ Page({
     topPadding: 0,
     bottomPadding: 0,
   },
+
+  // 最近一次解析成功的链接（trim 后）；当前输入等于它 → 按钮显示"清空"
+  _parsedUrl: '',
 
   /**
    * 页面加载 — 计算动态布局 + 显示骨架屏
@@ -87,11 +92,18 @@ Page({
       this.setData({ inputUrl: pendingUrl }, () => {
         this.doParse(pendingUrl);
       });
+      return;
     }
+    // 从解析页返回：解析成功的链接恢复"清空"态；其它情况恢复"粘贴"待解析
+    const trimmed = (this.data.inputUrl || '').trim();
+    this.setData({
+      btnText: trimmed && trimmed === this._parsedUrl ? '清空' : '粘贴',
+    });
   },
 
   /**
    * 输入变化 — 带节流自动解析
+   * 按钮状态机：空→粘贴；输入链接→自动解析（解析中）；清空态手动修改→取消已解析标记回粘贴
    */
   _parseDebounceTimer: null,
 
@@ -110,22 +122,42 @@ Page({
     }
 
     const trimmed = val.trim();
-    if (trimmed.length > 10 && /https?:\/\//i.test(trimmed)) {
+    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
+    const isModifyingParsed = this._parsedUrl !== '';
+
+    if (isLink && !isModifyingParsed) {
+      // 空状态输入链接 → 自动解析，按钮立即变"解析中"
+      this.setData({ btnText: '解析中' });
       this._parseDebounceTimer = setTimeout(() => {
         this.doParse(trimmed);
       }, 600);
+    } else if (isModifyingParsed) {
+      // 已解析内容被手动修改 → 取消"已解析"标记，变回待解析的"粘贴"（不自动解析）
+      this._parsedUrl = '';
+      this.setData({ btnText: '粘贴' });
+    } else {
+      this.setData({ btnText: '粘贴' });
     }
   },
 
   /**
-   * 搜索栏按钮点击 — 从剪贴板粘贴 / 解析当前输入
+   * 搜索栏按钮点击 — 三态状态机
+   * 粘贴（空输入）→ 读剪贴板并解析
+   * 解析中 → 忽略
+   * 清空（输入===已解析链接）→ 清空输入框，按钮回"粘贴"
+   * 待解析内容（手动输入/修改，非空非已解析）→ 解析当前内容
    */
   async onSearchBarBtnTap() {
     if (this.data.isLoading) return; // 解析中忽略重复点击
-    if (this.data.inputUrl) {
-      this.doParse(this.data.inputUrl.trim());
-    } else {
+    const trimmed = (this.data.inputUrl || '').trim();
+    if (!trimmed) {
       await this.onPaste();
+    } else if (trimmed === this._parsedUrl) {
+      // 点击"清空"：清空输入框内容，按钮变回"粘贴"
+      this._parsedUrl = '';
+      this.setData({ inputUrl: '', btnText: '粘贴' });
+    } else {
+      this.doParse(trimmed);
     }
   },
 
@@ -228,7 +260,9 @@ Page({
     if (!urlText) return;
 
     const seq = ++this._parseSeq;
-    this.setData({ isLoading: true });
+    // 新解析开始：取消旧的"已解析"标记（按钮文字由下方按结果设置）
+    this._parsedUrl = '';
+    this.setData({ isLoading: true, btnText: '解析中' });
 
     try {
       // 抖音短链统一交给后端解码：
@@ -240,7 +274,7 @@ Page({
       if (seq !== this._parseSeq) return;
 
       if (!result.success) {
-        this.setData({ isLoading: false });
+        this.setData({ isLoading: false, btnText: '粘贴' });
         // 短视频解析失败：平台风控限制（服务器无法访问该平台），给出明确提示
         if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
           this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', urlText);
@@ -250,7 +284,9 @@ Page({
         return;
       }
 
-      // 解析成功 — 存储并跳转
+      // 解析成功 — 记录已解析链接（返回本页时按钮据此显示"清空"）并跳转
+      this._parsedUrl = urlText;
+      this.setData({ isLoading: false, btnText: '清空' });
       app.globalData.lastParseResult = result;
       app.globalData.lastInputUrl = urlText;
       wx.navigateTo({
@@ -258,7 +294,7 @@ Page({
       });
     } catch (err) {
       if (seq !== this._parseSeq) return;
-      this.setData({ isLoading: false });
+      this.setData({ isLoading: false, btnText: '粘贴' });
       const msg = err.message || '网络错误';
 
       if (msg.includes('timeout') || msg.includes('超时')) {

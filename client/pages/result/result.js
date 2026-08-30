@@ -16,6 +16,8 @@ Page({
     videoStatus: '正在加载视频...',
     videoError: false,
     currentUrl: '',
+    // 底部输入框按钮文字：粘贴 | 解析中 | 清空（状态机见 onReparseBarBtn 注释）
+    reparseBtnText: '粘贴',
     autoFocus: false,
     hasVideoUrl: false,
     // 预览默认播原画直链（服务器纯反代秒开）；转码流仅作原画失败时的弱网兜底
@@ -31,6 +33,9 @@ Page({
     imageErrors: [],
   },
 
+  // 最近一次本页解析成功的链接（trim 后）；当前输入等于它 → 按钮显示"清空"
+  _reparsedUrl: '',
+
   onLoad() {
     const result = app.globalData.lastParseResult;
     if (!result) {
@@ -43,6 +48,7 @@ Page({
       resultData: result,
       // 输入框保持空白，方便用户重新粘贴新链接解析
       currentUrl: '',
+      reparseBtnText: '粘贴',
       // 视频地址缺失时渲染浅色占位，避免空 src 的 video 黑底
       hasVideoUrl: !!(result.data.proxyVideoUrl || result.data.videoUrl),
       // 图片多选：初始全部未选中
@@ -215,24 +221,56 @@ Page({
 
   /**
    * 粘贴栏输入变化
-   * 手动输入时按钮随内容切换（有内容→清空，空白→粘贴）
+   * 按钮状态机：空→粘贴；空状态输入链接→自动解析（解析中）；
+   * 清空态手动修改→取消已解析标记回粘贴（不自动解析，点击按钮时再解析）
    */
+  _reparseDebounce: null,
+
   onUrlInput(e) {
-    this.setData({ currentUrl: e.detail.value });
+    const val = e.detail.value;
+    this.setData({ currentUrl: val });
+
+    if (this._reparseDebounce) {
+      clearTimeout(this._reparseDebounce);
+    }
+
+    const trimmed = val.trim();
+    const isLink = trimmed.length > 10 && /https?:\/\//i.test(trimmed);
+    const isModifyingParsed = this._reparsedUrl !== '';
+
+    if (isLink && !isModifyingParsed) {
+      // 空状态输入链接 → 自动解析，按钮立即变"解析中"
+      this.setData({ reparseBtnText: '解析中' });
+      this._reparseDebounce = setTimeout(() => {
+        this.onReParse(trimmed);
+      }, 600);
+    } else if (isModifyingParsed) {
+      // 已解析内容被手动修改 → 取消"已解析"标记，变回待解析的"粘贴"
+      this._reparsedUrl = '';
+      this.setData({ reparseBtnText: '粘贴' });
+    } else {
+      this.setData({ reparseBtnText: '粘贴' });
+    }
   },
 
   /**
-   * 底部按钮点击 — 双态:
-   * - currentUrl 为空: 从剪贴板粘贴并自动解析
-   * - currentUrl 非空: 一键清空输入框
+   * 底部按钮点击 — 三态状态机
+   * 粘贴（空输入）→ 读剪贴板并解析
+   * 解析中 → 忽略
+   * 清空（输入===已解析链接）→ 清空输入框，按钮回"粘贴"
+   * 待解析内容（手动输入/修改，非空非已解析）→ 解析当前内容
    */
   onReparseBarBtn() {
-    if (this.data.currentUrl) {
-      // 有内容 → 清空
-      this.setData({ currentUrl: '' });
-      app.showToast('已清空', 'success');
-    } else {
+    if (this.data.reparseBtnText === '解析中') return; // 解析中忽略重复点击
+    const trimmed = (this.data.currentUrl || '').trim();
+    if (!trimmed) {
       this.onPasteUrl();
+    } else if (trimmed === this._reparsedUrl) {
+      // 点击"清空"：清空输入框内容，按钮变回"粘贴"
+      this._reparsedUrl = '';
+      this.setData({ currentUrl: '', reparseBtnText: '粘贴' });
+    } else {
+      this.onReParse(trimmed);
     }
   },
 
@@ -282,25 +320,28 @@ Page({
   },
 
   /**
-   * 重新解析（输入框确认 或 粘贴后自动）
+   * 重新解析（输入框确认 / 粘贴后自动 / 按钮点击待解析内容）
+   * 参数可为链接字符串或输入框 confirm 事件对象（WXML bindconfirm 直传）
    * 防"植物人"：解析期间忽略重复触发（连点不并发）；15s 超时由 app.request 兜底，
    * 失败分类提示并立即恢复可操作状态
    */
-  onReParse() {
-    const url = this.data.currentUrl.trim();
+  onReParse(urlOrEvent) {
+    const url = (typeof urlOrEvent === 'string' ? urlOrEvent : this.data.currentUrl || '').trim();
     if (!url) {
       app.showToast('请先粘贴链接');
       return;
     }
     if (this._reparsing) return; // 正在解析中，忽略重复触发
     this._reparsing = true;
-
-    app.showToast('正在解析...', 'loading');
+    // 按钮"解析中"已承担进行中反馈，不再额外弹 loading toast
+    this._reparsedUrl = '';
+    this.setData({ reparseBtnText: '解析中' });
 
     app.request('/parse', 'POST', { url })
       .then((result) => {
         if (!result.success) {
-          wx.hideToast();
+          this._reparsedUrl = '';
+          this.setData({ reparseBtnText: '粘贴' });
           app.showToast(result.error || '解析失败');
           return;
         }
@@ -308,10 +349,12 @@ Page({
         app.globalData.lastParseResult = result;
         app.globalData.lastInputUrl = url;
 
+        // 记录本次已解析链接（按钮显示"清空"），输入框保留内容方便直接清空/修改
+        this._reparsedUrl = url;
         this.setData({
           resultData: result,
-          // 解析成功后清空输入框，保持空白方便继续粘贴新链接
-          currentUrl: '',
+          currentUrl: url,
+          reparseBtnText: '清空',
           videoStatus: '正在加载视频...',
           videoError: false,
           // 图片多选状态重置：初始全部未选中
@@ -329,10 +372,10 @@ Page({
         this.saveToHistory(result);
         this.preloadVideo(result);
         this.preloadImages();
-        wx.hideToast();
       })
       .catch((err) => {
-        wx.hideToast();
+        this._reparsedUrl = '';
+        this.setData({ reparseBtnText: '粘贴' });
         // 分类提示：超时 / 网络异常给可操作的文案，避免裸抛底层 errMsg
         const msg = (err && err.message) || '网络错误';
         if (msg.includes('timeout') || msg.includes('超时')) {
@@ -457,45 +500,70 @@ Page({
   },
 
   /**
+   * 统一的剪贴板写入 — 复制链接/文案共用
+   * 复制属隐私接口：先 requirePrivacyAuthorize 主动授权（同意/拒绝都继续尝试写入，
+   * 由 setClipboardData 自行触发隐私弹窗或失败）；失败时把 errMsg 亮给用户，
+   * 若是隐私未授权则直接指出根因与解法
+   */
+  _copyToClipboard(text, okMsg) {
+    const doCopy = () => {
+      wx.setClipboardData({
+        data: text,
+        success: () => {
+          app.showToast(okMsg, 'success');
+        },
+        fail: (err) => {
+          console.error('[复制] 失败:', err);
+          const msg = (err && (err.errMsg || err.message)) || '未知原因';
+          if (/privacy|not authorized|auth/i.test(msg)) {
+            app.showToast('复制失败：未获得剪贴板授权。请在微信后台「用户隐私保护指引」中声明「剪贴板」后重新提交审核，并在授权弹窗点击「同意并继续」。');
+          } else {
+            app.showToast('复制失败：' + msg);
+          }
+        },
+      });
+    };
+
+    if (wx.requirePrivacyAuthorize) {
+      wx.requirePrivacyAuthorize({ success: doCopy, fail: doCopy });
+    } else {
+      doCopy();
+    }
+  },
+
+  /**
    * 复制文案
    */
   onCopyDesc() {
-    const text = this.data.resultData.data.title;
+    const d = this.data.resultData && this.data.resultData.data;
+    const text = d && d.title;
     if (!text) {
       app.showToast('暂无文案内容');
       return;
     }
-
-    wx.setClipboardData({
-      data: text,
-      success: () => {
-        app.showToast('✅ 文案已复制', 'success');
-      },
-      fail: () => {
-        app.showToast('复制失败');
-      },
-    });
+    this._copyToClipboard(text, '✅ 文案已复制');
   },
 
   /**
-   * 复制链接
+   * 复制链接（优先代理地址，保证可直接访问）
    */
-  onCopyLink(e) {
-    const link = e.currentTarget.dataset.link;
+  onCopyLink() {
+    const d = this.data.resultData && this.data.resultData.data;
+    if (!d) {
+      app.showToast('链接无效');
+      return;
+    }
+    let link = '';
+    if (d.type === 'image') {
+      link = (d.proxyImages && d.proxyImages[0]) || (d.images && d.images[0]) || '';
+    } else {
+      link = d.proxyVideoUrl || d.videoUrl || '';
+    }
     if (!link) {
       app.showToast('链接无效');
       return;
     }
-
-    wx.setClipboardData({
-      data: link,
-      success: () => {
-        app.showToast('✅ 已复制到剪贴板', 'success');
-      },
-      fail: () => {
-        app.showToast('复制失败');
-      },
-    });
+    this._copyToClipboard(link, '✅ 已复制到剪贴板');
   },
 
   /**

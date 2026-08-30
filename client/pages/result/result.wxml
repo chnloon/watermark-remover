@@ -183,7 +183,7 @@
 
       <!-- 第二行：辅助操作 -->
       <view class="action-group__row action-group__row--secondary">
-        <button class="action-btn action-btn--secondary" bindtap="onCopyLink" data-link="{{resultData.data.type === 'image' ? (resultData.data.proxyImages ? resultData.data.proxyImages[0] : resultData.data.images[0]) : (resultData.data.proxyVideoUrl || resultData.data.videoUrl)}}">
+        <button class="action-btn action-btn--secondary" bindtap="onCopyLink">
           <text class="action-btn__label">复制链接</text>
         </button>
         <button wx:if="{{resultData.data.title}}" class="action-btn action-btn--secondary" bindtap="onCopyDesc">
@@ -222,7 +222,7 @@
           bindconfirm="onReParse"
           focus="{{autoFocus}}"
         />
-        <button class="reparse-bar__btn {{currentUrl ? 'reparse-bar__btn--clear' : ''}}" bindtap="onReparseBarBtn">{{currentUrl ? '清空' : '粘贴'}}</button>
+        <button class="reparse-bar__btn {{reparseBtnText === '清空' ? 'reparse-bar__btn--clear' : ''}}" bindtap="onReparseBarBtn">{{reparseBtnText}}</button>
       </view>
     </view>
 
