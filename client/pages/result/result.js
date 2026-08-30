@@ -18,10 +18,8 @@ Page({
     currentUrl: '',
     autoFocus: false,
     hasVideoUrl: false,
-    // 清晰度切换：'low' 流畅（默认，后端转码 480p，省流更顺）/ 'hd' 高清原画
-    videoQuality: 'low',
+    // 预览固定走"流畅"转码流（480p，省流更顺）；转码失败自动回落原画
     lowVideoUrl: '',
-    videoStartTime: 0,
     selectedImages: [],
     selectedCount: 0,
     allSelected: false,
@@ -47,10 +45,8 @@ Page({
       selectedCount: 0,
       allSelected: false,
       imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
-      // 清晰度状态：默认流畅（480p 转码，手机观感足够且省流），可一键切高清原画
-      videoQuality: 'low',
+      // 预览固定使用"流畅"转码流（省流更顺；下载仍为原画直链）
       lowVideoUrl: this._buildLowVideoUrl(result),
-      videoStartTime: 0,
     });
 
     // 保存到历史记录
@@ -207,10 +203,8 @@ Page({
           selectedCount: 0,
           allSelected: false,
           imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => false) : [],
-          // 重新解析后清晰度回到默认流畅，并重新生成流畅地址
-          videoQuality: 'low',
+          // 重新解析后重新生成"流畅"转码地址
           lowVideoUrl: this._buildLowVideoUrl(result),
-          videoStartTime: 0,
         });
 
         this.saveToHistory(result);
@@ -291,41 +285,15 @@ Page({
   },
 
   /**
-   * 播放进度记录 — 切换清晰度时用于续播
-   */
-  onVideoTimeUpdate(e) {
-    this._lastPlayTime = e.detail.currentTime || 0;
-  },
-
-  /**
-   * 清晰度切换（高清原画 / 流畅转码）
-   * 切换后从当前播放位置续播，避免重新从头看
-   */
-  onQualityChange(e) {
-    const q = e.currentTarget.dataset.q;
-    if (q === this.data.videoQuality) return;
-
-    this.setData({
-      videoQuality: q,
-      // 记住当前播放位置，换源后通过 initial-time 续播
-      videoStartTime: this._lastPlayTime || 0,
-      videoStatus: q === 'low' ? '正在加载流畅画质...' : '正在加载高清画质...',
-      videoError: false,
-    });
-    app.showToast(q === 'low' ? '已切换为流畅模式' : '已切换为高清模式');
-  },
-
-  /**
    * 视频播放错误时，尝试切换源
    */
   onVideoError(e) {
     console.error('视频播放失败:', e.detail);
     // 流畅（转码）流失败时自动回落到高清原画，避免一直停在错误状态
     // （服务器未装 ffmpeg 或转码出错时，转码流会返回 502）
-    if (this.data.videoQuality === 'low' && this.data.lowVideoUrl) {
+    if (this.data.lowVideoUrl) {
       this.setData({
-        videoQuality: 'hd',
-        videoStartTime: this._lastPlayTime || 0,
+        lowVideoUrl: '',
         videoStatus: '流畅模式暂不可用，已切换高清',
         videoError: false,
       });

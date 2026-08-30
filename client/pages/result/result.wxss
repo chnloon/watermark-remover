@@ -183,49 +183,6 @@
   opacity: 0.85;
 }
 
-/* ---- 清晰度切换条 ---- */
-.quality-bar {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 26rpx 8rpx;
-  gap: 16rpx;
-}
-
-.quality-bar__title {
-  font-size: 26rpx;
-  color: #565b6a;
-  font-weight: 500;
-}
-
-.quality-bar__seg {
-  display: flex;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1rpx solid rgba(22, 24, 31, 0.10);
-  border-radius: 30rpx;
-  padding: 4rpx;
-}
-
-.quality-bar__opt {
-  font-size: 24rpx;
-  color: #565b6a;
-  padding: 8rpx 28rpx;
-  border-radius: 26rpx;
-  transition: all 0.2s ease;
-}
-
-.quality-bar__opt--on {
-  color: #fff;
-  background: #2b6cff;
-  font-weight: 500;
-  box-shadow: 0 6rpx 16rpx -6rpx rgba(43, 108, 255, 0.5);
-}
-
-.quality-bar__hint {
-  margin-left: auto;
-  font-size: 22rpx;
-  color: #8a8f9d;
-}
-
 /* ---- 图片轮播 ---- */
 .media-card__swiper {
   width: 100%;
