@@ -184,16 +184,11 @@ Page({
    */
   async onPaste() {
     try {
-      // 主动请求隐私授权；失败不阻断——继续调 getClipboardData，
-      // 由它触发隐私弹窗（后台指引生效时），或自行失败再降级
-      if (wx.requirePrivacyAuthorize) {
-        try {
-          await new Promise((resolve, reject) => {
-            wx.requirePrivacyAuthorize({ success: resolve, fail: reject });
-          });
-        } catch (e) {
-          console.warn('[粘贴] requirePrivacyAuthorize 未通过，继续尝试读取剪贴板:', e);
-        }
+      // 先确认隐私授权：未同意则拉起弹窗；用户曾拒绝时直接引导去设置
+      const privacyOk = await app.checkPrivacyAuth();
+      if (!privacyOk) {
+        this.showClipboardFallback({ errMsg: 'privacy permission is not authorized' });
+        return;
       }
       const res = await wx.getClipboardData({});
       if (res.data) {
@@ -215,13 +210,13 @@ Page({
 
   /**
    * 剪贴板读取失败降级 — 聚焦输入框，引导用户长按手动粘贴
-   * 隐私未授权时直接给出根因与解法，避免用户反复试错
+   * 隐私未授权时直接给出手机端解法（去设置开启 / 删除重进），避免用户反复试错
    */
   showClipboardFallback(err) {
     const msg = (err && (err.errMsg || err.message)) || '';
     let content = '请长按下方输入框，选择"粘贴"后点击解析。';
-    if (/privacy|auth/i.test(msg)) {
-      content = '未获得剪贴板授权：请确认小程序后台「用户隐私保护指引」已通过审核且声明了「剪贴板」，并在授权弹窗点击「同意并继续」。也可长按下方输入框手动粘贴。';
+    if (/privacy|not authorized|auth/i.test(msg)) {
+      content = '微信还没允许小程序读取剪贴板。\n\n① 点右上角「...」→ 设置 → 隐私设置，开启剪贴板授权后再试；\n② 或删除小程序重新进入，点粘贴时在弹出的窗口点「同意并继续」。\n\n不想授权的话，直接长按输入框手动粘贴也能用。';
     }
     wx.showModal({
       title: '无法读取剪贴板',

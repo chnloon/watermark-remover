@@ -212,4 +212,47 @@ App({
       duration: 2000,
     });
   },
+
+  /**
+   * 隐私接口统一授权检查（剪贴板/相册等）
+   * 用户曾拒绝时微信不再自动弹窗（errno 104），必须先查状态再决定动作：
+   * needAuthorization=true → 主动拉起隐私弹窗；用户同意 true，拒绝/关闭 false
+   * @returns {Promise<boolean>} true=授权就绪可直接调用；false=用户未同意（需引导去设置）
+   */
+  checkPrivacyAuth() {
+    return new Promise((resolve) => {
+      // 基础库过低（<2.32.3）：无隐私协议机制，放行由接口自行失败降级
+      if (!wx.getPrivacySetting || !wx.requirePrivacyAuthorize) {
+        resolve(true);
+        return;
+      }
+      wx.getPrivacySetting({
+        success: (res) => {
+          if (res && res.needAuthorization) {
+            wx.requirePrivacyAuthorize({
+              success: () => resolve(true),
+              fail: () => resolve(false),
+            });
+          } else {
+            resolve(true); // 已同意过
+          }
+        },
+        fail: () => resolve(true), // 状态查询失败 → 放行，让接口自身失败再降级
+      });
+    });
+  },
+
+  /**
+   * 隐私未授权统一引导 — 用户点过"拒绝"后微信不再弹窗，
+   * 只能去小程序设置里重新开启（或删除重进让弹窗重新出现）
+   * @param {string} what 授权对象，如"读取剪贴板" / "保存视频"
+   */
+  showPrivacyGuide(what) {
+    wx.showModal({
+      title: '需要授权',
+      content: `微信还没允许小程序${what}。\n\n① 点右上角「...」→ 设置 → 隐私设置，开启相关授权；\n② 或删除小程序重新进入，重新弹窗时点「同意并继续」。`,
+      showCancel: false,
+      confirmText: '好的',
+    });
+  },
 });

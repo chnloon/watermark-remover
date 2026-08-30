@@ -310,16 +310,11 @@ Page({
    */
   async onPasteUrl() {
     try {
-      // 主动请求隐私授权；失败不阻断——继续调 getClipboardData，
-      // 由它触发隐私弹窗（后台指引生效时），或自行失败再降级
-      if (wx.requirePrivacyAuthorize) {
-        try {
-          await new Promise((resolve, reject) => {
-            wx.requirePrivacyAuthorize({ success: resolve, fail: reject });
-          });
-        } catch (e) {
-          console.warn('[粘贴] requirePrivacyAuthorize 未通过，继续尝试读取剪贴板:', e);
-        }
+      // 先确认隐私授权：未同意则拉起弹窗；用户曾拒绝时直接引导去设置
+      const privacyOk = await app.checkPrivacyAuth();
+      if (!privacyOk) {
+        this.showClipboardGuide();
+        return;
       }
       const res = await wx.getClipboardData({});
       if (res.data) {
@@ -334,8 +329,8 @@ Page({
       console.error('[粘贴] 读取剪贴板失败:', err);
       const msg = (err && (err.errMsg || err.message)) || '';
       let content = '请长按下方输入框，选择"粘贴"后点击解析。';
-      if (/privacy|auth/i.test(msg)) {
-        content = '未获得剪贴板授权：请确认小程序后台「用户隐私保护指引」已通过审核且声明了「剪贴板」，并在授权弹窗点击「同意并继续」。也可长按下方输入框手动粘贴。';
+      if (/privacy|not authorized|auth/i.test(msg)) {
+        content = '微信还没允许小程序读取剪贴板。\n\n① 点右上角「...」→ 设置 → 隐私设置，开启剪贴板授权后再试；\n② 或删除小程序重新进入，点粘贴时在弹出的窗口点「同意并继续」。\n\n不想授权的话，直接长按输入框手动粘贴也能用。';
       }
       wx.showModal({
         title: '无法读取剪贴板',
@@ -348,6 +343,22 @@ Page({
         },
       });
     }
+  },
+
+  /**
+   * 剪贴板隐私未授权引导（粘贴按钮共用）
+   */
+  showClipboardGuide() {
+    wx.showModal({
+      title: '无法读取剪贴板',
+      content: '微信还没允许小程序读取剪贴板。\n\n① 点右上角「...」→ 设置 → 隐私设置，开启剪贴板授权后再试；\n② 或删除小程序重新进入，点粘贴时在弹出的窗口点「同意并继续」。\n\n不想授权的话，直接长按输入框手动粘贴也能用。',
+      showCancel: false,
+      confirmText: '好的',
+      success: () => {
+        // 聚焦输入框，方便用户直接长按粘贴
+        this.setData({ autoFocus: true });
+      },
+    });
   },
 
   /**
@@ -533,9 +544,8 @@ Page({
 
   /**
    * 统一的剪贴板写入 — 复制链接/文案共用
-   * 复制属隐私接口：先 requirePrivacyAuthorize 主动授权（同意/拒绝都继续尝试写入，
-   * 由 setClipboardData 自行触发隐私弹窗或失败）；失败时把 errMsg 亮给用户，
-   * 若是隐私未授权则直接指出根因与解法
+   * 复制属隐私接口：先确认授权（首次弹窗同意；曾拒绝则引导去设置），
+   * 授权就绪后再写入，失败时给出明确根因
    */
   _copyToClipboard(text, okMsg) {
     const doCopy = () => {
@@ -548,7 +558,7 @@ Page({
           console.error('[复制] 失败:', err);
           const msg = (err && (err.errMsg || err.message)) || '未知原因';
           if (/privacy|not authorized|auth/i.test(msg)) {
-            app.showToast('复制失败：未获得剪贴板授权。请在微信后台「用户隐私保护指引」中声明「剪贴板」后重新提交审核，并在授权弹窗点击「同意并继续」。');
+            app.showPrivacyGuide('复制内容');
           } else {
             app.showToast('复制失败：' + msg);
           }
@@ -556,11 +566,13 @@ Page({
       });
     };
 
-    if (wx.requirePrivacyAuthorize) {
-      wx.requirePrivacyAuthorize({ success: doCopy, fail: doCopy });
-    } else {
-      doCopy();
-    }
+    app.checkPrivacyAuth().then((ok) => {
+      if (ok) {
+        doCopy();
+      } else {
+        app.showPrivacyGuide('复制内容');
+      }
+    });
   },
 
   /**
@@ -682,7 +694,14 @@ Page({
       return;
     }
 
-    // 第一步: 主动索取相册权限
+    // 第一步: 隐私协议授权（saveVideoToPhotosAlbum 属隐私接口，未同意会直接失败）
+    const privacyOk = await app.checkPrivacyAuth();
+    if (!privacyOk) {
+      app.showPrivacyGuide('保存视频');
+      return;
+    }
+
+    // 第二步: 主动索取相册权限
     const granted = await this.ensureAlbumPermission();
     if (!granted) {
       app.showToast('未获得相册权限，无法保存');
@@ -732,6 +751,13 @@ Page({
     const videoUrl = item.url;
     if (!videoUrl) {
       app.showToast('视频地址无效');
+      return;
+    }
+
+    // 隐私协议授权（saveVideoToPhotosAlbum 属隐私接口）
+    const privacyOk = await app.checkPrivacyAuth();
+    if (!privacyOk) {
+      app.showPrivacyGuide('保存视频');
       return;
     }
 
@@ -791,6 +817,13 @@ Page({
 
     if (selectedIndexes.length === 0) {
       app.showToast('请先选择要保存的图片');
+      return;
+    }
+
+    // 隐私协议授权（saveImageToPhotosAlbum 属隐私接口）
+    const privacyOk = await app.checkPrivacyAuth();
+    if (!privacyOk) {
+      app.showPrivacyGuide('保存图片');
       return;
     }
 
