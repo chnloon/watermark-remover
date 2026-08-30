@@ -27,6 +27,8 @@ Page({
     // 图片预览：先 wx.downloadFile 下载到本地临时文件再展示（本地路径渲染无防盗链/域名限制）
     localImages: [],
     imageLoading: [],
+    // 各图片失败原因（直连/代理/base64 三路依次尝试，全失败时展示原因便于定位）
+    imageErrors: [],
   },
 
   onLoad() {
@@ -49,6 +51,7 @@ Page({
       allSelected: false,
       localImages: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
       imageLoading: result.data.type === 'image' ? (result.data.images || []).map(() => true) : [],
+      imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
       // 预览默认播原画直链（秒开）；转码流存为兜底，仅原画播放失败时启用
       fallbackVideoUrl: this._buildLowVideoUrl(result),
       playingFallback: false,
@@ -108,13 +111,19 @@ Page({
   },
 
   /**
-   * 图片笔记预览 — 先下载到本地临时文件再展示
+   * 图片笔记预览 — 三路保险依次尝试，全部失败时把原因显性化到占位区
    *
    * 为什么不用 <image> 直接加载远程 URL：
    * 小程序 image 组件请求不带 Referer，直连 xhscdn 图床被防盗链拒绝（403）；
    * 代理 URL 又受 downloadFile/request 合法域名与响应头限制。
-   * 改为 wx.downloadFile 把图拉到本地（临时文件路径 wxfile:// 渲染无任何限制），
-   * 与保存相册走同一条已验证可用的链路，预览必然出图。
+   *
+   * 三路保险：
+   *   1. wx.downloadFile 直连原图（带 Referer 过防盗链；手机 IP 直连通常可访问）
+   *   2. wx.downloadFile 走 /proxy/image 代理（服务器反代，带 Referer + 403 回落缩略图）
+   *   3. wx.request arraybuffer 拉代理图 → base64 data URI 渲染
+   *      （不依赖 downloadFile 域名配置，只依赖 request 域名 + 服务器，最后一搏）
+   *
+   * 三条路都拿到本地路径/数据 URI（wxfile:// 与 data: URI 渲染无任何限制），预览必出图。
    */
   preloadImages() {
     const images = this.data.resultData && this.data.resultData.data.images;
@@ -123,6 +132,27 @@ Page({
 
     // 页面卸载后不再 setData（下载回调是异步的）
     this._pageAlive = true;
+
+    // wx.request 拉二进制转 base64 data URI（最后一搏，不依赖 downloadFile 域名）
+    const fetchBase64 = (url, timeout) =>
+      new Promise((resolve, reject) => {
+        wx.request({
+          url,
+          method: 'GET',
+          responseType: 'arraybuffer',
+          timeout,
+          success: (res) => {
+            if (res.statusCode === 200 && res.data && res.data.byteLength > 0) {
+              const rawType = (res.header && (res.header['content-type'] || res.header['Content-Type'])) || 'image/jpeg';
+              const mime = String(rawType).split(';')[0].trim() || 'image/jpeg';
+              resolve(`data:${mime};base64,${wx.arrayBufferToBase64(res.data)}`);
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}`));
+            }
+          },
+          fail: (err) => reject(new Error((err && err.errMsg) || 'request fail')),
+        });
+      });
 
     // 并发 3 张下载，逐张完成后增量 setData（不阻塞滚动）
     const concurrency = 3;
@@ -134,25 +164,42 @@ Page({
         const proxyUrl = (proxyImages && proxyImages[i]) || '';
 
         let tempFilePath = '';
-        // 直连优先（手机 IP 直连图床通常可访问）；域名校验/失败自动走代理
+        const errors = [];
+        // 路 1：直连优先（带 Referer 过图床防盗链）
         if (directUrl) {
           try {
-            const res = await wx.downloadFile({ url: directUrl, timeout: 30000 });
+            const res = await wx.downloadFile({
+              url: directUrl,
+              header: { Referer: 'https://www.xiaohongshu.com/' },
+              timeout: 30000,
+            });
             if (res.statusCode === 200) tempFilePath = res.tempFilePath;
-          } catch { /* 直连失败走代理 */ }
+            else errors.push(`直连HTTP${res.statusCode}`);
+          } catch (err) { errors.push(`直连${(err && err.errMsg) || err}`); }
         }
+        // 路 2：代理 downloadFile
         if (!tempFilePath && proxyUrl && proxyUrl !== directUrl) {
           try {
             const res = await wx.downloadFile({ url: proxyUrl, timeout: 45000 });
             if (res.statusCode === 200) tempFilePath = res.tempFilePath;
-          } catch (err) {
-            console.error(`图片 ${i + 1} 下载失败:`, err.errMsg || err);
-          }
+            else errors.push(`代理HTTP${res.statusCode}`);
+          } catch (err) { errors.push(`代理${(err && err.errMsg) || err}`); }
+        }
+        // 路 3：request arraybuffer → base64 data URI（域名已配 request 合法域名即可用）
+        if (!tempFilePath && proxyUrl) {
+          try {
+            tempFilePath = await fetchBase64(proxyUrl, 45000);
+          } catch (err) { errors.push(`base64${err.message}`); }
         }
 
         if (!this._pageAlive) return;
         const patch = { [`imageLoading[${i}]`]: false };
-        if (tempFilePath) patch[`localImages[${i}]`] = tempFilePath;
+        if (tempFilePath) {
+          patch[`localImages[${i}]`] = tempFilePath;
+        } else {
+          console.error(`图片 ${i + 1} 三路全失败:`, errors.join(' | '));
+          patch[`imageErrors[${i}]`] = errors.join(' | ');
+        }
         this.setData(patch);
       }
     };
@@ -273,6 +320,7 @@ Page({
           allSelected: false,
           localImages: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
           imageLoading: result.data.type === 'image' ? (result.data.images || []).map(() => true) : [],
+          imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
           // 重新解析后重新生成"流畅"转码地址（仅作弱网兜底，默认仍播原画）
           fallbackVideoUrl: this._buildLowVideoUrl(result),
           playingFallback: false,

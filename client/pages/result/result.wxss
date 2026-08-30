@@ -290,6 +290,18 @@
   color: #b0b4c0;
 }
 
+/* 失败原因（直连/代理/base64 三路结果，小字灰显，便于定位断点） */
+.image-card__error-text {
+  margin-top: 8rpx;
+  padding: 0 16rpx;
+  font-size: 18rpx;
+  line-height: 1.4;
+  color: #c3c7d1;
+  max-height: 64rpx;
+  overflow: hidden;
+  text-align: center;
+}
+
 /* 勾选标记（右上角蓝点：未选为白底描边，选中变实心蓝） */
 .image-card__check {
   position: absolute;

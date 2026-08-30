@@ -87,16 +87,17 @@
             data-index="{{index}}"
             bindtap="onToggleImage"
           >
-            <!-- 预览：先下载到本地临时文件再渲染（wxfile:// 渲染无防盗链/域名限制） -->
+            <!-- 预览：先下载到本地临时文件再渲染（wxfile:// 与 data:URI 渲染无防盗链/域名限制） -->
             <image
               wx:if="{{localImages[index]}}"
               class="image-card__img"
               src="{{localImages[index]}}"
               mode="aspectFill"
             />
-            <!-- 下载中 / 下载失败占位 -->
+            <!-- 下载中 / 下载失败占位（失败时展示具体原因，便于一锤定音定位） -->
             <view wx:else class="image-card__img image-card__img--fallback">
               <text class="image-card__fallback-text">{{imageLoading[index] ? '加载中...' : '加载失败'}}</text>
+              <text wx:if="{{!imageLoading[index] && imageErrors[index]}}" class="image-card__error-text">{{imageErrors[index]}}</text>
             </view>
             <!-- 勾选标记（右上角蓝点，选中变实心蓝） -->
             <view class="image-card__check {{selectedImages[index] ? 'image-card__check--on' : ''}}"></view>
