@@ -31,6 +31,8 @@ Page({
     imageLoading: [],
     // 各图片失败原因（直连/代理/base64 三路依次尝试，全失败时展示原因便于定位）
     imageErrors: [],
+    // 原图直链加载异常时回退的服务器代理地址（image 组件 binderror 触发后写入）
+    imagesFallback: [],
   },
 
   // 最近一次本页解析成功的链接（trim 后）；当前输入等于它 → 按钮显示"清空"
@@ -58,6 +60,7 @@ Page({
       localImages: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
       imageLoading: result.data.type === 'image' ? (result.data.images || []).map(() => true) : [],
       imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
+      imagesFallback: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
       // 预览默认播原画直链（秒开）；转码流存为兜底，仅原画播放失败时启用
       fallbackVideoUrl: this._buildLowVideoUrl(result),
       playingFallback: false,
@@ -203,13 +206,26 @@ Page({
         if (tempFilePath) {
           patch[`localImages[${i}]`] = tempFilePath;
         } else {
-          console.error(`图片 ${i + 1} 三路全失败:`, errors.join(' | '));
-          patch[`imageErrors[${i}]`] = errors.join(' | ');
+          // 三路下载全失败：不阻塞预览——wxml 已用原图直链（images[index]）兜底渲染，
+          // 此处仅记录原因便于排查，UI 不再显示"加载失败"大字
+          console.error(`图片 ${i + 1} 三路下载失败，已用原图直链兜底:`, errors.join(' | '));
         }
         this.setData(patch);
       }
     };
     for (let k = 0; k < concurrency; k++) worker();
+  },
+
+  /**
+   * 原图直链加载失败（个别图床异常/网络抖动）→ 回退到服务器代理地址再试一次
+   */
+  onImageFallback(e) {
+    const i = e.currentTarget.dataset.index;
+    if (i === undefined || this.data.imagesFallback[i]) return; // 已回退过，避免死循环
+    const proxyImages = this.data.resultData && this.data.resultData.data.proxyImages;
+    if (proxyImages && proxyImages[i]) {
+      this.setData({ [`imagesFallback[${i}]`]: proxyImages[i] });
+    }
   },
 
   /**
@@ -379,6 +395,7 @@ Page({
           localImages: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
           imageLoading: result.data.type === 'image' ? (result.data.images || []).map(() => true) : [],
           imageErrors: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
+          imagesFallback: result.data.type === 'image' ? (result.data.images || []).map(() => '') : [],
           // 重新解析后重新生成"流畅"转码地址（仅作弱网兜底，默认仍播原画）
           fallbackVideoUrl: this._buildLowVideoUrl(result),
           playingFallback: false,
