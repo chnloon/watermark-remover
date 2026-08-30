@@ -30,7 +30,6 @@
   <block wx:else>
     <!-- 头部 -->
     <view class="page-header fade-in-up">
-      <text class="page-header__title">历史记录</text>
       <button class="page-header__clear {{historySections.length > 0 ? '' : 'hidden'}}" bindtap="onClearAll">
         清空全部
       </button>
@@ -38,9 +37,6 @@
 
     <!-- 空状态 -->
     <view wx:if="{{historySections.length === 0}}" class="empty-state fade-in-up--d2">
-      <view class="empty-state__circle">
-        <text class="empty-state__icon">📭</text>
-      </view>
       <text class="empty-state__text">暂无解析记录</text>
       <text class="empty-state__hint">解析成功后会自动保存到这里</text>
       <button class="btn-primary btn-go-parse" bindtap="onGoParse">去解析 →</button>
