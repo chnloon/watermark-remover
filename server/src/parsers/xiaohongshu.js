@@ -37,6 +37,41 @@ function cleanImageUrl(url) {
 }
 
 /**
+ * 小红书 2024+ 图片直链多指向 sns-webpic-*.xhscdn.com（需登录态，匿名/代理一律 403），
+ * 同一文件在旧图床 sns-img-*.xhscdn.com 公开可访问（不校验签名，不带 Referer 也 200）。
+ * 转换规则：sns-webpic-{qc|bd|hw} → sns-img-qc，并去掉 /<时间戳>/<签名>/ 目录段
+ * （带签名路径在老图床是 404，去掉后按 fileId 直取）。
+ */
+function toPublicImageUrl(url) {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    if (/sns-webpic-[a-z]+\.xhscdn\.com/i.test(u.hostname)) {
+      u.hostname = 'sns-img-qc.xhscdn.com';
+      u.pathname = u.pathname.replace(/^\/\d{9,}\/[^/]+\//, '/');
+      return u.toString();
+    }
+  } catch { /* 非法 URL 原样返回 */ }
+  return url;
+}
+
+/**
+ * 第三方 API（bugpk 等）返回的图片直链同样多为 sns-webpic 私密图（需登录态），
+ * 在透传出口统一清洗成老图床公开 URL，保证小程序端直连即可加载。
+ */
+function sanitizeThirdPartyImages(result) {
+  if (!result || !result.success || !result.data) return result;
+  const d = result.data;
+  if (Array.isArray(d.images)) {
+    d.images = d.images.map((u) => toPublicImageUrl(cleanImageUrl(u))).filter(Boolean);
+  }
+  if (d.coverUrl) {
+    d.coverUrl = toPublicImageUrl(cleanImageUrl(d.coverUrl));
+  }
+  return result;
+}
+
+/**
  * 从 imageList 单项中提取最高清原图 URL
  * 小红书结构: { urlDefault | url | infoList: [{ image: { url, width, height } }] }
  * infoList 按清晰度排列时取最大 width 的那一档
@@ -79,7 +114,7 @@ async function parse(shareUrl, options = {}) {
       // 仅第三方：直连链路故障时的快速止损，第三方结论即最终结论
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return thirdPartyResult;
+        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
         return thirdPartyResult;
       } catch (apiErr) {
         console.error('[小红书] 第三方线路失败:', apiErr.message);
@@ -95,7 +130,7 @@ async function parse(shareUrl, options = {}) {
       // 第三方优先：先走第三方，成功立即返回；失败回落直连链
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return thirdPartyResult;
+        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
         console.error('[小红书] 第三方优先失败:', thirdPartyResult.error);
       } catch (apiErr) {
         console.error('[小红书] 第三方优先失败:', apiErr.message);
@@ -126,7 +161,7 @@ async function parse(shareUrl, options = {}) {
     if (routeMode === 'auto') {
       try {
         const thirdPartyResult = await parseViaThirdParty(shareUrl, 'xiaohongshu');
-        if (thirdPartyResult.success) return thirdPartyResult;
+        if (thirdPartyResult.success) return sanitizeThirdPartyImages(thirdPartyResult);
       } catch (apiErr) {
         console.error('[小红书] 第三方 API 也失败:', apiErr.message);
 
@@ -243,7 +278,7 @@ async function scrapeNoteContent(url) {
     $('img').each((i, el) => {
       const src = $(el).attr('src') || $(el).attr('data-src') || '';
       if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
-        const clean = cleanImageUrl(src);
+        const clean = toPublicImageUrl(cleanImageUrl(src));
         if (clean) images.push(clean);
       }
     });
@@ -302,7 +337,7 @@ async function scrapeNoteContent(url) {
           noteTitle = note.title || note.desc || '';
           authorName = note.user && note.user.nickName ? note.user.nickName : '';
           if (note.cover && note.cover.fileId) {
-            coverFromState = cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`);
+            coverFromState = toPublicImageUrl(cleanImageUrl(`https://sns-webpic-qc.xhscdn.com/${note.cover.fileId}`));
           }
           // 视频笔记
           if (!videoUrl && note.video && note.video.media && note.video.media.stream) {
@@ -315,7 +350,7 @@ async function scrapeNoteContent(url) {
               if (!img) continue;
               // 提取最高清版本并清洗缩略图后缀（取原图分辨率）
               const rawUrl = extractBestImageUrl(img);
-              const imgUrl = cleanImageUrl(rawUrl);
+              const imgUrl = toPublicImageUrl(cleanImageUrl(rawUrl));
               if (imgUrl) {
                 stateImages.push(imgUrl);
               }
@@ -345,7 +380,7 @@ async function scrapeNoteContent(url) {
         platform: 'xiaohongshu',
         data: {
           title: noteTitle || title || description || '',
-          coverUrl: ogImage || coverFromState || (images.length > 0 ? images[0] : ''),
+          coverUrl: toPublicImageUrl(ogImage) || coverFromState || (images.length > 0 ? images[0] : ''),
           videoUrl: videoUrl,
           noteId: extractNoteId(url),
           source: 'xiaohongshu',
@@ -366,7 +401,7 @@ async function scrapeNoteContent(url) {
         allImages.push(u);
       }
     }
-    const finalImages = allImages.length > 0 ? allImages : (ogImage ? [cleanImageUrl(ogImage)] : []);
+    const finalImages = allImages.length > 0 ? allImages : (ogImage ? [toPublicImageUrl(cleanImageUrl(ogImage))] : []);
 
     return {
       success: true,
@@ -557,7 +592,7 @@ async function retryWithCookie(url, cookieStr) {
     $('img').each((i, el) => {
       const src = $(el).attr('src') || $(el).attr('data-src') || '';
       if (src && src.includes('xhscdn.com') && !src.includes('avatar') && !src.includes('icon')) {
-        images.push(src);
+        images.push(toPublicImageUrl(cleanImageUrl(src)));
       }
     });
 
@@ -569,7 +604,7 @@ async function retryWithCookie(url, cookieStr) {
         platform: 'xiaohongshu',
         data: {
           title: title || description || '',
-          coverUrl: ogImage || (images.length > 0 ? images[0] : ''),
+          coverUrl: toPublicImageUrl(ogImage) || (images.length > 0 ? images[0] : ''),
           videoUrl: videoUrl,
           noteId: extractNoteId(url),
           source: 'xiaohongshu',
@@ -585,7 +620,7 @@ async function retryWithCookie(url, cookieStr) {
         platform: 'xiaohongshu',
         data: {
           title: title || description || '',
-          coverUrl: ogImage || images[0],
+          coverUrl: toPublicImageUrl(ogImage) || images[0],
           images: images,
           noteId: extractNoteId(url),
           source: 'xiaohongshu',
@@ -602,4 +637,4 @@ async function retryWithCookie(url, cookieStr) {
   }
 }
 
-module.exports = { parse };
+module.exports = { parse, sanitizeThirdPartyImages };

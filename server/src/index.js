@@ -348,6 +348,21 @@ app.get('/proxy/image', mediaLimiter, requireValidToken, async (req, res) => {
       return null;
     };
 
+    // 小红书新图床 sns-webpic-*.xhscdn.com 需登录态（匿名 403），
+    // 同一文件在旧图床 sns-img-qc.xhscdn.com 公开可访问（不校验签名），
+    // 同时去掉 /<时间戳>/<签名>/ 目录段（带签名路径在老图床是 404）
+    const buildPublicHostUrl = (url) => {
+      try {
+        const u = new URL(url);
+        if (/sns-webpic-[a-z]+\.xhscdn\.com/i.test(u.hostname)) {
+          u.hostname = 'sns-img-qc.xhscdn.com';
+          u.pathname = u.pathname.replace(/^\/\d{9,}\/[^/]+\//, '/');
+          return u.toString();
+        }
+      } catch { /* 交由上层处理 */ }
+      return null;
+    };
+
     const requestHeaders = {
       'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/116.0.0.0 Mobile Safari/537.36',
       'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
@@ -370,13 +385,16 @@ app.get('/proxy/image', mediaLimiter, requireValidToken, async (req, res) => {
 
     let response = await fetchImage(decodedUrl);
 
-    // 原图直链被防盗链拒绝 → 回落缩略图档（仅 xhscdn 图床）
+    // 原图直链被防盗链拒绝 → 依次尝试回落候选（加缩略图后缀 / 换公开老图床），
+    // 任一候选成功（< 400）即用其结果，全部失败则透传最后状态
     if ((response.status === 403 || response.status === 404) && !decodedUrl.includes('!')) {
-      const fallback = buildFallbackUrl(decodedUrl);
-      if (fallback) {
+      const candidates = [buildFallbackUrl(decodedUrl), buildPublicHostUrl(decodedUrl)].filter(Boolean);
+      for (const fb of candidates) {
+        if (fb === decodedUrl) continue;
         response.data.resume(); // 丢弃原响应体，释放连接
-        console.log('[图片代理] 原图直链被拒，回落缩略图档');
-        response = await fetchImage(fallback);
+        console.log('[图片代理] 原图被拒，尝试回落:', fb);
+        response = await fetchImage(fb);
+        if (response.status < 400) break;
       }
     }
 
