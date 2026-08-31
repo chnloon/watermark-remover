@@ -23,6 +23,31 @@ const parsers = {
   generic: require('../parsers/generic'),
 };
 
+// 解析总超时护栏（20s）：
+// 抖音解析链路最坏 60s+（浏览器竞速全失败 + lux + 第三方降级），而客户端请求超时 25s。
+// 到 20s 直接返回"超时"失败，避免"客户端已断、服务器还在傻跑"（浪费资源 + 持续触发平台风控）。
+// 超时后解析在后台仍会继续，成功后写入缓存，用户重试同一链接即可秒回。
+const PARSE_TIMEOUT_MS = 20 * 1000;
+
+/** 带超时的 Promise 包装：到点返回超时结果，不抛出异常 */
+function withTimeout(promise, ms, platform) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(
+      () => resolve({ success: false, platform, error: '解析超时，请稍后重试' }),
+      ms
+    );
+    promise.then(
+      (result) => { clearTimeout(timer); resolve(result); },
+      (err) => {
+        // 解析器抛异常：保留错误日志（主流程会按 success:false 记录统计），响应统一返回失败
+        clearTimeout(timer);
+        console.error(`[解析] ${platform} 异常:`, err && err.message);
+        resolve({ success: false, platform, error: '服务器内部错误，请稍后重试' });
+      }
+    );
+  });
+}
+
 /**
  * POST /api/parse
  * 解析视频/图片链接
@@ -66,7 +91,8 @@ router.post('/parse', async (req, res) => {
   const routeMode = routeState.getMode();
 
   try {
-    const result = await parser.parse(cleanUrl, { routeMode });
+    // 总超时护栏：任何平台解析最多等 PARSE_TIMEOUT_MS，到点返回失败不再傻跑
+    const result = await withTimeout(parser.parse(cleanUrl, { routeMode }), PARSE_TIMEOUT_MS, platform);
 
     // 记录本次解析结果（成败 + 平台），供 /api/status 诊断当前线路健康度
     routeState.recordParse(platform, !!(result && result.success), (result && result.error) || '');

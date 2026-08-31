@@ -155,7 +155,7 @@ async function parse(shareUrl, options = {}) {
         };
       }
       try {
-        const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 30000, '第三方');
+        const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 15000, '第三方');
         if (thirdPartyResult.success) {
           cacheSet(cacheKey, thirdPartyResult);
           console.log(`[抖音] 第三方线路解析成功 (${Date.now() - startTime}ms)`);
@@ -176,7 +176,7 @@ async function parse(shareUrl, options = {}) {
       // 第三方优先：先单独跑第三方（成功立即返回），失败再走直连竞速链（不含第三方）
       if (thirdPartyReady) {
         try {
-          const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 30000, '第三方优先');
+          const thirdPartyResult = await withTimeout(parseViaThirdParty(targetUrl, 'douyin'), 15000, '第三方优先');
           if (thirdPartyResult.success) {
             cacheSet(cacheKey, thirdPartyResult);
             console.log(`[抖音] 第三方优先命中 (${Date.now() - startTime}ms)`);
@@ -190,20 +190,22 @@ async function parse(shareUrl, options = {}) {
     }
 
     // ---- 并行三路：API / 页面 SSR / 浏览器 ----
+    // 各环节超时均已收紧（总护栏 20s 在路由层兜底，客户端 25s）：
+    // 浏览器竞速最慢 15s，全失败时整个竞速最多等 15s，不再出现 60s 拖死链路的情况
     const strategies = [];
 
     if (videoId) {
       strategies.push({
         name: 'API',
         run: () => fetchViaApi(videoId),
-        timeout: 15000,
+        timeout: 12000,
       });
     }
     if (videoId || fullUrl) {
       strategies.push({
         name: '页面SSR',
         run: () => fetchViaPage(targetUrl, videoId),
-        timeout: 20000,
+        timeout: 12000,
       });
     }
     if (videoId || fullUrl) {
@@ -216,7 +218,7 @@ async function parse(shareUrl, options = {}) {
             return normalizeBrowserResult(br, videoId);
           });
         },
-        timeout: 60000,
+        timeout: 15000,
       });
     }
     // 若配置了第三方 API（如 bugpk），并行发起——数据中心 IP 被抖音风控时的关键兜底
@@ -225,7 +227,7 @@ async function parse(shareUrl, options = {}) {
       strategies.push({
         name: '第三方',
         run: () => parseViaThirdParty(targetUrl, 'douyin'),
-        timeout: 30000,
+        timeout: 15000,
       });
     }
 
@@ -267,7 +269,7 @@ async function parse(shareUrl, options = {}) {
     const cleanUrl = videoId
       ? `https://www.douyin.com/video/${videoId}`
       : targetUrl.split('?')[0]; // 无 videoId 时仅保留 path
-    const luxResult = await withTimeout(parseViaLux(cleanUrl), 45000, 'lux');
+    const luxResult = await withTimeout(parseViaLux(cleanUrl), 15000, 'lux');
     if (luxResult.success) {
       cacheSet(cacheKey, luxResult);
       return luxResult;
@@ -338,7 +340,7 @@ async function resolveShortUrl(shortUrl) {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       maxRedirects: 0,
-      timeout: 10000,
+      timeout: 6000,
     });
     return response.request.res.responseUrl || shortUrl;
   } catch (err) {

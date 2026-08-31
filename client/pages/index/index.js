@@ -288,8 +288,10 @@ Page({
 
       if (!result.success) {
         this.setData({ isLoading: false, btnText: '解析' });
-        // 短视频解析失败：平台风控限制（服务器无法访问该平台），给出明确提示
-        if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
+        // 服务器 20s 总护栏返回的超时：给准确提示，不说成"平台限制"
+        if (/超时/.test(result.error || '')) {
+          this.showError('解析超时（服务器响应慢），请稍后重试', urlText);
+        } else if (result.platform === 'douyin' || /抖音/.test(result.error || '')) {
           this.showError('短视频解析暂时不可用（平台限制），可尝试其他链接', urlText);
         } else {
           this.showError(result.error || '解析失败，请检查链接是否有效', urlText);
