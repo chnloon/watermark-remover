@@ -334,4 +334,14 @@ Page({
       url: '/pages/agreement/agreement',
     });
   },
+
+  /**
+   * 右上角转发 — 分享入口（微信不会默认开启转发，须逐页定义）
+   */
+  onShareAppMessage() {
+    return {
+      title: '短视频链接一键解析',
+      path: '/pages/index/index',
+    };
+  },
 });

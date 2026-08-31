@@ -148,4 +148,14 @@ Page({
       url: '/pages/index/index',
     });
   },
+
+  /**
+   * 右上角转发 — 分享入口
+   */
+  onShareAppMessage() {
+    return {
+      title: '短视频链接一键解析',
+      path: '/pages/index/index',
+    };
+  },
 });

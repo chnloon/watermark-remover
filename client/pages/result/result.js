@@ -949,4 +949,16 @@ Page({
       url: '/pages/index/index',
     });
   },
+
+  /**
+   * 右上角转发 — 分享入口；分享卡片用当前解析标题，落地回主页
+   */
+  onShareAppMessage() {
+    const d = this.data.resultData && this.data.resultData.data;
+    const title = d && d.title ? d.title.slice(0, 30) : '短视频链接一键解析';
+    return {
+      title,
+      path: '/pages/index/index',
+    };
+  },
 });
