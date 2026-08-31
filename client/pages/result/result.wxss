@@ -140,18 +140,7 @@
   background: #e9ebf1;
 }
 
-/* ---- 视频加载/错误状态 ---- */
-.media-card__status-loading {
-  padding: 20rpx 0;
-  display: flex;
-  justify-content: center;
-}
-
-.media-card__loading-text {
-  font-size: 24rpx;
-  color: #565b6a;
-}
-
+/* ---- 视频错误状态 ---- */
 .media-card__status-error {
   display: flex;
   flex-direction: column;

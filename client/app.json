@@ -7,7 +7,7 @@
   ],
   "window": {
     "navigationBarBackgroundColor": "#f3f4f7",
-    "navigationBarTitleText": "一键解析去水印",
+    "navigationBarTitleText": "一键去水印",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f3f4f7"
   },
@@ -19,7 +19,7 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "链接解析"
+        "text": "主页"
       },
       {
         "pagePath": "pages/history/history",
